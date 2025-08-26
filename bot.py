@@ -168,7 +168,7 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
     await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
 
-  import discord
+import discord
 from discord import app_commands
 
 # -----------------------------
