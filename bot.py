@@ -6,6 +6,7 @@ from aiohttp import web
 import aiohttp
 import random
 import asyncio
+import json
 
 # -----------------------------
 # Web 伺服器（保活用）
@@ -181,56 +182,14 @@ async def announce(interaction: discord.Interaction, title: str, content: str, p
     embed.set_footer(text=f"發布者：{interaction.user.display_name}")
     
     mention = "@everyone" if ping_everyone else ""
+    await interaction.response.defer(ephemeral=True)
     await interaction.channel.send(mention, embed=embed)
-    await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
 
 # -----------------------------
 # 抽獎系統
 # -----------------------------
-@bot.tree.command(name="giveaway", description="舉辦抽獎")
-@app_commands.describe(prize="獎品內容", duration="抽獎持續時間（秒）")
-async def giveaway(interaction: discord.Interaction, prize: str, duration: int):
-    if duration < 5:
-        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
-        return
+GIVEAWAY_FILE = "giveaways.json"
 
-    embed = discord.Embed(title="🎉 抽獎活動 🎉", description=f"獎品：**{prize}**\n點擊 🎉 參加！\n⏳ {duration} 秒後抽出得主", color=discord.Color.purple())
-    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
-    
-    message = await interaction.channel.send(embed=embed)
-    await message.add_reaction("🎉")
-    await interaction.response.send_message("✅ 抽獎已開始！", ephemeral=True)
-
-    # 等待時間
-    await asyncio.sleep(duration)
-
-    # 抓取參加者
-    message = await interaction.channel.fetch_message(message.id)
-    users = await message.reactions[0].users().flatten()
-    users = [u for u in users if not u.bot]
-
-    if users:
-        winner = random.choice(users)
-        await interaction.channel.send(f"🎊 恭喜 {winner.mention} 獲得 **{prize}**！")
-    else:
-        await interaction.channel.send("😢 沒有人參加抽獎。")
-
-# -----------------------------
-# 自我保活
-# -----------------------------
-@tasks.loop(minutes=5)
-async def ping_self():
-    url = os.getenv("SELF_URL")
-    if url:
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(url) as resp:
-                    print(f"Pinged {url}, status {resp.status}")
-            except Exception as e:
-                print("Ping error:", e)
-
-# -----------------------------
-# 啟動 Bot
-# -----------------------------
-TOKEN = os.getenv("DISCORD_TOKEN")
-bot.run(TOKEN)
+def load_giveaways():
+    if os.path.exists(GIVEAWAY_FILE):
+        with
