@@ -5,6 +5,7 @@ from discord import app_commands
 from aiohttp import web
 import aiohttp
 import random
+import asyncio
 
 # -----------------------------
 # Web 伺服器（保活用）
@@ -53,7 +54,7 @@ async def on_ready():
 # -----------------------------
 # 排行榜
 # -----------------------------
-leaderboard = {}  # key = user_id, value = 勝場數
+leaderboard = {}
 
 def add_win(user_id, amount=1):
     if user_id in leaderboard:
@@ -75,7 +76,7 @@ async def show_leaderboard(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 # -----------------------------
-# 基本 Slash Commands
+# 基本指令
 # -----------------------------
 @bot.tree.command(name="ping", description="測試 Bot 是否在線")
 async def ping(interaction: discord.Interaction):
@@ -85,142 +86,62 @@ async def ping(interaction: discord.Interaction):
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f"Hello {interaction.user.mention}!")
 
-@bot.tree.command(name="userinfo", description="查看使用者資訊")
-@app_commands.describe(member="要查詢的使用者")
-async def userinfo(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    embed = discord.Embed(title=f"{member}'s Info", color=discord.Color.blue())
-    embed.add_field(name="ID", value=member.id, inline=False)
-    embed.add_field(name="Display Name", value=member.display_name, inline=False)
-    embed.add_field(name="Joined at", value=member.joined_at, inline=False)
-    if member.avatar:
-        embed.set_thumbnail(url=member.avatar.url)
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="serverinfo", description="查看伺服器資訊")
-async def serverinfo(interaction: discord.Interaction):
-    guild = interaction.guild
-    embed = discord.Embed(title=f"{guild.name} Info", color=discord.Color.green())
-    embed.add_field(name="ID", value=guild.id, inline=False)
-    embed.add_field(name="Owner", value=guild.owner, inline=False)
-    embed.add_field(name="Member Count", value=guild.member_count, inline=False)
-    embed.add_field(name="Created At", value=guild.created_at, inline=False)
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    await interaction.response.send_message(embed=embed)
-
-# -----------------------------
-# 管理指令
-# -----------------------------
-@bot.tree.command(name="kick", description="踢出使用者")
-@app_commands.describe(member="要踢出的成員", reason="原因")
-async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    if not interaction.user.guild_permissions.kick_members:
-        await interaction.response.send_message("❌ 你沒有踢人的權限", ephemeral=True)
-        return
-    try:
-        await member.kick(reason=reason)
-        await interaction.response.send_message(f"✅ 已踢出 {member} 原因: {reason}")
-    except Exception as e:
-        await interaction.response.send_message(f"❌ 無法踢出 {member}: {e}", ephemeral=True)
-
-@bot.tree.command(name="ban", description="封鎖使用者")
-@app_commands.describe(member="要封鎖的成員", reason="原因")
-async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
-    if not interaction.user.guild_permissions.ban_members:
-        await interaction.response.send_message("❌ 你沒有封鎖的權限", ephemeral=True)
-        return
-    try:
-        await member.ban(reason=reason)
-        await interaction.response.send_message(f"✅ 已封鎖 {member} 原因: {reason}")
-    except Exception as e:
-        await interaction.response.send_message(f"❌ 無法封鎖 {member}: {e}", ephemeral=True)
-
-# -----------------------------
-# /say 指令 (匿名發言模式)
-# -----------------------------
-@bot.tree.command(name="say", description="讓 Bot 發訊息（匿名發言）")
+@bot.tree.command(name="say", description="匿名發言")
 @app_commands.describe(message="Bot 要說的內容")
 async def say(interaction: discord.Interaction, message: str):
-    # 先回覆使用者 (只有自己能看到)
     await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
+    await interaction.channel.send(f"💬 {message}")
+
+# -----------------------------
+# 公告系統
+# -----------------------------
+@bot.tree.command(name="announce", description="發布公告（管理員限定）")
+@app_commands.describe(title="公告標題", content="公告內容", ping_everyone="是否要 @everyone")
+async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
+        return
     
-    # 機器人再公開發送
-    await interaction.channel.send(f" {message}")
+    embed = discord.Embed(title=f"📢 {title}", description=content, color=discord.Color.orange())
+    embed.set_footer(text=f"發布者：{interaction.user.display_name}")
+    
+    mention = "@everyone" if ping_everyone else ""
+    await interaction.channel.send(mention, embed=embed)
+    await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
 
 # -----------------------------
-# 好玩/實用指令
+# 抽獎系統
 # -----------------------------
-@bot.tree.command(name="calc", description="計算數學表達式")
-@app_commands.describe(expression="例如：2+3*4")
-async def calc(interaction: discord.Interaction, expression: str):
-    try:
-        allowed = "0123456789+-*/(). "
-        if any(c not in allowed for c in expression):
-            raise ValueError("只能使用數字和 + - * / ( )")
-        result = eval(expression)
-        await interaction.response.send_message(f"`{expression}` = {result}")
-    except Exception as e:
-        await interaction.response.send_message(f"❌ 無法計算: {e}")
-
-@bot.tree.command(name="roll", description="擲骰子")
-@app_commands.describe(sides="骰子面數，例如 6")
-async def roll(interaction: discord.Interaction, sides: int = 6):
-    if sides < 2:
-        await interaction.response.send_message("骰子至少要有 2 面")
+@bot.tree.command(name="giveaway", description="舉辦抽獎")
+@app_commands.describe(prize="獎品內容", duration="抽獎持續時間（秒）")
+async def giveaway(interaction: discord.Interaction, prize: str, duration: int):
+    if duration < 5:
+        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
         return
-    result = random.randint(1, sides)
-    await interaction.response.send_message(f"🎲 擲出 {result} (1-{sides})")
 
-@bot.tree.command(name="choose", description="隨機選一個選項")
-@app_commands.describe(options="用空格分開，例如：蘋果 香蕉 西瓜")
-async def choose(interaction: discord.Interaction, options: str):
-    choices = options.split()
-    if not choices:
-        await interaction.response.send_message("請至少輸入一個選項")
-        return
-    result = random.choice(choices)
-    await interaction.response.send_message(f"🎯 選中: {result}")
+    embed = discord.Embed(title="🎉 抽獎活動 🎉", description=f"獎品：**{prize}**\n點擊 🎉 參加！\n⏳ {duration} 秒後抽出得主", color=discord.Color.purple())
+    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
+    
+    message = await interaction.channel.send(embed=embed)
+    await message.add_reaction("🎉")
+    await interaction.response.send_message("✅ 抽獎已開始！", ephemeral=True)
 
-@bot.tree.command(name="coin", description="擲硬幣")
-async def coin(interaction: discord.Interaction):
-    result = random.choice(["正面", "反面"])
-    add_win(interaction.user.id)
-    await interaction.response.send_message(f"🪙 擲出 {result}，你獲得 1 勝！")
+    # 等待時間
+    await asyncio.sleep(duration)
 
-@bot.tree.command(name="rps", description="剪刀石頭布遊戲")
-@app_commands.describe(choice="你的選擇：剪刀 石頭 布")
-async def rps(interaction: discord.Interaction, choice: str):
-    choice = choice.lower()
-    options = ["剪刀", "石頭", "布"]
-    if choice not in [o.lower() for o in options]:
-        await interaction.response.send_message("請輸入：剪刀、石頭 或 布")
-        return
-    bot_choice = random.choice(options)
-    if choice == bot_choice.lower():
-        result = "平手"
-    elif (choice == "剪刀" and bot_choice == "布") or \
-         (choice == "布" and bot_choice == "石頭") or \
-         (choice == "石頭" and bot_choice == "剪刀"):
-        result = "你贏了！🎉"
-        add_win(interaction.user.id)
+    # 抓取參加者
+    message = await interaction.channel.fetch_message(message.id)
+    users = await message.reactions[0].users().flatten()
+    users = [u for u in users if not u.bot]
+
+    if users:
+        winner = random.choice(users)
+        await interaction.channel.send(f"🎊 恭喜 {winner.mention} 獲得 **{prize}**！")
     else:
-        result = "我贏了！😎"
-    await interaction.response.send_message(f"你出: {choice}\n我出: {bot_choice}\n結果: {result}")
-
-@bot.tree.command(name="randomnum", description="隨機數字生成")
-@app_commands.describe(min="最小值", max="最大值")
-async def randomnum(interaction: discord.Interaction, min: int, max: int):
-    if min > max:
-        await interaction.response.send_message("❌ 最小值不能大於最大值")
-        return
-    number = random.randint(min, max)
-    if number == max:
-        add_win(interaction.user.id)
-    await interaction.response.send_message(f"🎲 隨機數字: {number}，最高值算 1 勝！")
+        await interaction.channel.send("😢 沒有人參加抽獎。")
 
 # -----------------------------
-# 自我保活任務
+# 自我保活
 # -----------------------------
 @tasks.loop(minutes=5)
 async def ping_self():
