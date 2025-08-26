@@ -6,7 +6,6 @@ from aiohttp import web
 import aiohttp
 import random
 import asyncio
-import json
 
 # -----------------------------
 # Web 伺服器（保活用）
@@ -182,14 +181,157 @@ async def announce(interaction: discord.Interaction, title: str, content: str, p
     embed.set_footer(text=f"發布者：{interaction.user.display_name}")
     
     mention = "@everyone" if ping_everyone else ""
-    await interaction.response.defer(ephemeral=True)
     await interaction.channel.send(mention, embed=embed)
+    await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
 
 # -----------------------------
 # 抽獎系統
 # -----------------------------
+import os
+import discord
+from discord import app_commands
+import asyncio
+import random
+import json
+
 GIVEAWAY_FILE = "giveaways.json"
 
+# -----------------------------
+# JSON 儲存函式
+# -----------------------------
 def load_giveaways():
     if os.path.exists(GIVEAWAY_FILE):
-        with
+        with open(GIVEAWAY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_giveaways(data):
+    with open(GIVEAWAY_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
+# -----------------------------
+# /giveaway 指令
+# -----------------------------
+@bot.tree.command(name="giveaway", description="舉辦抽獎")
+@app_commands.describe(
+    prize="獎品內容",
+    winners="中獎人數",
+    hours="小時",
+    minutes="分鐘",
+    seconds="秒"
+)
+async def giveaway(
+    interaction: discord.Interaction,
+    prize: str,
+    winners: int = 1,
+    hours: int = 0,
+    minutes: int = 0,
+    seconds: int = 0
+):
+    duration = hours*3600 + minutes*60 + seconds
+    if duration < 5:
+        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
+        return
+    if winners < 1:
+        await interaction.response.send_message("❌ 得獎人數至少要 1 位", ephemeral=True)
+        return
+
+    def format_time(sec):
+        h, m, s = sec//3600, (sec%3600)//60, sec%60
+        return f"{h:02}:{m:02}:{s:02}"
+
+    embed = discord.Embed(
+        title="🎉 抽獎活動 🎉",
+        description=f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！\n⏳ 剩餘時間：{format_time(duration)}",
+        color=discord.Color.purple()
+    )
+    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
+
+    message = await interaction.channel.send(embed=embed)
+    await message.add_reaction("🎉")
+    await interaction.response.send_message(f"✅ 抽獎已開始！訊息 ID：`{message.id}`", ephemeral=True)
+
+    # 倒數更新，每 5 秒刷新一次
+    for remaining in range(duration, 0, -5):
+        embed.description = f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！\n⏳ 剩餘時間：{format_time(remaining)}"
+        await message.edit(embed=embed)
+        await asyncio.sleep(5)
+
+    # 抓取參加者
+    message = await interaction.channel.fetch_message(message.id)
+    users = await message.reactions[0].users().flatten()
+    users = [u for u in users if not u.bot]
+
+    if users:
+        if len(users) < winners:
+            winners = len(users)
+        chosen = random.sample(users, winners)
+        mentions = ", ".join([u.mention for u in chosen])
+        await interaction.channel.send(f"🎊 恭喜 {mentions} 獲得 **{prize}**！")
+
+        # 存 JSON
+        giveaways = load_giveaways()
+        giveaways[str(message.id)] = {
+            "participants": [u.id for u in users],
+            "winners": [u.id for u in chosen],
+            "prize": prize
+        }
+        save_giveaways(giveaways)
+    else:
+        await interaction.channel.send("😢 沒有人參加抽獎。")
+
+# -----------------------------
+# /reroll 指令
+# -----------------------------
+@bot.tree.command(name="reroll", description="重新抽取抽獎得主")
+@app_commands.describe(
+    message_id="抽獎活動訊息的 ID",
+    winners="要重新抽出的人數 (預設 1)"
+)
+async def reroll(interaction: discord.Interaction, message_id: str, winners: int = 1):
+    giveaways = load_giveaways()
+    if message_id not in giveaways:
+        await interaction.response.send_message("❌ 找不到抽獎資料，無法重抽。", ephemeral=True)
+        return
+
+    participants_ids = giveaways[message_id]["participants"]
+    participants = [interaction.guild.get_member(uid) for uid in participants_ids if interaction.guild.get_member(uid)]
+    if not participants:
+        await interaction.response.send_message("😢 沒有人參加抽獎，無法重抽。", ephemeral=True)
+        return
+
+    if winners < 1:
+        await interaction.response.send_message("❌ 得獎人數至少要 1 位。", ephemeral=True)
+        return
+    if winners > len(participants):
+        winners = len(participants)
+
+    chosen = random.sample(participants, winners)
+    mentions = ", ".join([u.mention for u in chosen])
+
+    # 更新 JSON
+    giveaways[message_id]["winners"] = [u.id for u in chosen]
+    save_giveaways(giveaways)
+
+    await interaction.channel.send(f"🔄 重新抽獎結果：恭喜 {mentions}！")
+    await interaction.response.send_message(f"✅ 已重新抽出 {winners} 位新得主！", ephemeral=True)
+
+# -----------------------------
+# 自我保活
+# -----------------------------
+@tasks.loop(minutes=5)
+async def ping_self():
+    url = os.getenv("SELF_URL")
+    if url:
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url) as resp:
+                    print(f"Pinged {url}, status {resp.status}")
+            except Exception as e:
+                print("Ping error:", e)
+
+# -----------------------------
+# 啟動 Bot
+# -----------------------------
+TOKEN = os.getenv("DISCORD_TOKEN")
+bot.run(TOKEN)
