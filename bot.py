@@ -49,10 +49,10 @@ bot = MyBot()
 
 @bot.event
 async def on_ready():
-    print(f"✅ Bot is ready! Logged in as {bot.user}")
+    print(f"✅ Bot 已啟動！登入身分：{bot.user}")
 
 # -----------------------------
-# 排行榜
+# 排行榜系統
 # -----------------------------
 leaderboard = {}
 
@@ -91,6 +91,81 @@ async def hello(interaction: discord.Interaction):
 async def say(interaction: discord.Interaction, message: str):
     await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
     await interaction.channel.send(f"💬 {message}")
+
+# -----------------------------
+# 好玩功能
+# -----------------------------
+@bot.tree.command(name="add", description="加法運算")
+async def add(interaction: discord.Interaction, a: int, b: int):
+    await interaction.response.send_message(f"{a} + {b} = {a+b}")
+
+@bot.tree.command(name="sub", description="減法運算")
+async def sub(interaction: discord.Interaction, a: int, b: int):
+    await interaction.response.send_message(f"{a} - {b} = {a-b}")
+
+@bot.tree.command(name="mul", description="乘法運算")
+async def mul(interaction: discord.Interaction, a: int, b: int):
+    await interaction.response.send_message(f"{a} × {b} = {a*b}")
+
+@bot.tree.command(name="div", description="除法運算")
+async def div(interaction: discord.Interaction, a: int, b: int):
+    if b == 0:
+        await interaction.response.send_message("❌ 不能除以 0")
+    else:
+        await interaction.response.send_message(f"{a} ÷ {b} = {a/b}")
+
+@bot.tree.command(name="rps", description="剪刀石頭布")
+@app_commands.describe(choice="你的選擇：rock, paper, scissors")
+async def rps(interaction: discord.Interaction, choice: str):
+    options = ["rock", "paper", "scissors"]
+    if choice not in options:
+        await interaction.response.send_message("❌ 請輸入 rock, paper 或 scissors")
+        return
+    bot_choice = random.choice(options)
+    result = ""
+    if choice == bot_choice:
+        result = "平手！"
+    elif (choice == "rock" and bot_choice == "scissors") or \
+         (choice == "scissors" and bot_choice == "paper") or \
+         (choice == "paper" and bot_choice == "rock"):
+        result = "你贏了！"
+        add_win(interaction.user.id)
+    else:
+        result = "你輸了！"
+    await interaction.response.send_message(f"你選擇：{choice}\nBot 選擇：{bot_choice}\n➡ {result}")
+
+@bot.tree.command(name="dice", description="擲骰子")
+async def dice(interaction: discord.Interaction):
+    num = random.randint(1, 6)
+    await interaction.response.send_message(f"🎲 你擲出了 {num}")
+
+# -----------------------------
+# 管理功能
+# -----------------------------
+@bot.tree.command(name="clear", description="清理訊息")
+@app_commands.describe(amount="要刪除的訊息數量")
+async def clear(interaction: discord.Interaction, amount: int):
+    if not interaction.user.guild_permissions.manage_messages:
+        await interaction.response.send_message("❌ 你沒有權限刪除訊息", ephemeral=True)
+        return
+    deleted = await interaction.channel.purge(limit=amount+1)
+    await interaction.response.send_message(f"✅ 已刪除 {len(deleted)-1} 則訊息", ephemeral=True)
+
+@bot.tree.command(name="kick", description="踢出成員")
+async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+    if not interaction.user.guild_permissions.kick_members:
+        await interaction.response.send_message("❌ 你沒有權限踢人", ephemeral=True)
+        return
+    await member.kick(reason=reason)
+    await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
+
+@bot.tree.command(name="ban", description="封禁成員")
+async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+    if not interaction.user.guild_permissions.ban_members:
+        await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
+        return
+    await member.ban(reason=reason)
+    await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
 # -----------------------------
 # 公告系統
