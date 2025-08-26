@@ -183,7 +183,7 @@ tree = bot.tree  # ✅ 正確取得 CommandTree
 # -----------------------------
 # /announce 指令，可指定頻道
 # -----------------------------
-@tree.command(
+@bot.tree.command(
     name="announce",
     description="發布公告（管理員限定）"
 )
