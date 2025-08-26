@@ -137,12 +137,16 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
         await interaction.response.send_message(f"❌ 無法封鎖 {member}: {e}", ephemeral=True)
 
 # -----------------------------
-# /say 指令 (Ephemeral)
+# /say 指令 (匿名發言模式)
 # -----------------------------
-@bot.tree.command(name="say", description="讓 Bot 發訊息（僅自己可見）")
+@bot.tree.command(name="say", description="讓 Bot 發訊息（匿名發言）")
 @app_commands.describe(message="Bot 要說的內容")
 async def say(interaction: discord.Interaction, message: str):
-    await interaction.response.send_message(f"🗣️ {message}", ephemeral=True)
+    # 先回覆使用者 (只有自己能看到)
+    await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
+    
+    # 機器人再公開發送
+    await interaction.channel.send(f"💬 {message}")
 
 # -----------------------------
 # 好玩/實用指令
