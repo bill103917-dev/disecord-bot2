@@ -170,19 +170,41 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
 # -----------------------------
 # 公告系統
 # -----------------------------
-@bot.tree.command(name="announce", description="發布公告（管理員限定）")
-@app_commands.describe(title="公告標題", content="公告內容", ping_everyone="是否要 @everyone")
+from discord import app_commands
+import discord
+
+# 假設 bot 是你的 discord.Client 或 discord.Bot
+# tree = bot.tree
+
+@tree.command(
+    name="announce",
+    description="發布公告（管理員限定）"
+)
+@app_commands.describe(
+    title="公告標題",
+    content="公告內容",
+    ping_everyone="是否要 @everyone"
+)
 async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
+    # 只允許管理員使用
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
         return
-    
-    embed = discord.Embed(title=f"📢 {title}", description=content, color=discord.Color.orange())
+
+    # 建立 Embed
+    embed = discord.Embed(
+        title=f"📢 {title}",
+        description=content,
+        color=discord.Color.orange()
+    )
     embed.set_footer(text=f"發布者：{interaction.user.display_name}")
-    
+
+    # 回覆操作確認（ephemeral，只有使用者自己看得到）
+    await interaction.response.send_message("✅ 公告已發佈！", ephemeral=True)
+
+    # 實際在頻道中發送公告（只會發送一次）
     mention = "@everyone" if ping_everyone else ""
     await interaction.channel.send(mention, embed=embed)
-    await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
 
 
         
