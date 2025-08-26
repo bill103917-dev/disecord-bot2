@@ -167,15 +167,27 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
     await member.ban(reason=reason)
     await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
-# -----------------------------
-# 公告系統
-# -----------------------------
-from discord import app_commands
+
+async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
+    # 只允許管理員使用
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
+        return
 import discord
+from discord import app_commands
 
-# 假設 bot 是你的 discord.Client 或 discord.Bot
-# tree = bot.tree
+# -----------------------------
+# 建立 Client
+# -----------------------------
+intents = discord.Intents.default()
+intents.message_content = True
 
+bot = discord.Client(intents=intents)
+tree = bot.tree  # 取得 CommandTree
+
+# -----------------------------
+# /announce 指令，可指定頻道
+# -----------------------------
 @tree.command(
     name="announce",
     description="發布公告（管理員限定）"
@@ -183,13 +195,23 @@ import discord
 @app_commands.describe(
     title="公告標題",
     content="公告內容",
+    channel="選擇公告要發送的頻道",
     ping_everyone="是否要 @everyone"
 )
-async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
-    # 只允許管理員使用
+async def announce(
+    interaction: discord.Interaction,
+    title: str,
+    content: str,
+    channel: discord.TextChannel = None,
+    ping_everyone: bool = False
+):
+    # 檢查管理員權限
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
         return
+
+    # 如果沒指定頻道，預設使用指令所在頻道
+    target_channel = channel or interaction.channel
 
     # 建立 Embed
     embed = discord.Embed(
@@ -199,12 +221,20 @@ async def announce(interaction: discord.Interaction, title: str, content: str, p
     )
     embed.set_footer(text=f"發布者：{interaction.user.display_name}")
 
-    # 回覆操作確認（ephemeral，只有使用者自己看得到）
-    await interaction.response.send_message("✅ 公告已發佈！", ephemeral=True)
+    # 回覆使用者操作確認（ephemeral）
+    await interaction.response.send_message(f"✅ 公告已發佈到 {target_channel.mention}！", ephemeral=True)
 
-    # 實際在頻道中發送公告（只會發送一次）
+    # 實際發送公告
     mention = "@everyone" if ping_everyone else ""
-    await interaction.channel.send(mention, embed=embed)
+    await target_channel.send(mention, embed=embed)
+
+# -----------------------------
+# on_ready 事件，同步指令
+# -----------------------------
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動！登入身分：{bot.user}")
+    await tree.sync()  # 同步 Slash Command
 
 
         
