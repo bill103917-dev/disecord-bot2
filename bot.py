@@ -25,4 +25,4 @@ async def on_message(message):
 TOKEN = os.getenv("DISCORD_TOKEN")
 print("Token loaded:", TOKEN is not None)
 
-bot.run(TOKEN)
+bot.run(DISCORD_TOKEN)
