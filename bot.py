@@ -168,12 +168,7 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
     await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
 
-async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
-    # 只允許管理員使用
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
-        return
-import discord
+  import discord
 from discord import app_commands
 
 # -----------------------------
@@ -183,7 +178,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 bot = discord.Client(intents=intents)
-tree = bot.tree  # 取得 CommandTree
+tree = bot.tree  # ✅ 正確取得 CommandTree
 
 # -----------------------------
 # /announce 指令，可指定頻道
@@ -195,7 +190,7 @@ tree = bot.tree  # 取得 CommandTree
 @app_commands.describe(
     title="公告標題",
     content="公告內容",
-    channel="選擇公告要發送的頻道",
+    channel="選擇公告要發送的頻道（可不選，預設為指令所在頻道）",
     ping_everyone="是否要 @everyone"
 )
 async def announce(
