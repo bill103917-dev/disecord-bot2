@@ -136,13 +136,10 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
     except Exception as e:
         await interaction.response.send_message(f"❌ 無法封鎖 {member}: {e}", ephemeral=True)
 
-@bot.tree.command(name="say", description="讓 Bot 發訊息")
+    @bot.tree.command(name="say", description="讓 Bot 發訊息（僅自己可見）")
 @app_commands.describe(message="Bot 要說的內容")
 async def say(interaction: discord.Interaction, message: str):
-    if not interaction.user.guild_permissions.manage_messages:
-        await interaction.response.send_message("❌ 你沒有權限使用這個指令", ephemeral=True)
-        return
-    await interaction.response.send_message(f"🗣️ {message}")
+    await interaction.response.send_message(f"🗣️ {message}", ephemeral=True)
 
 # -----------------------------
 # 好玩/實用指令
