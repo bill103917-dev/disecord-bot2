@@ -184,9 +184,8 @@ async def announce(interaction: discord.Interaction, title: str, content: str, p
     await interaction.channel.send(mention, embed=embed)
     await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
 
-# -----------------------------
-# 抽獎系統
-# -----------------------------
+
+        
 import os
 import discord
 from discord import app_commands
@@ -210,55 +209,34 @@ def save_giveaways(data):
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 # -----------------------------
-# /giveaway 指令
+# 全域字典：進行中抽獎
 # -----------------------------
-@bot.tree.command(name="giveaway", description="舉辦抽獎")
-@app_commands.describe(
-    prize="獎品內容",
-    winners="中獎人數",
-    hours="小時",
-    minutes="分鐘",
-    seconds="秒"
-)
-async def giveaway(
-    interaction: discord.Interaction,
-    prize: str,
-    winners: int = 1,
-    hours: int = 0,
-    minutes: int = 0,
-    seconds: int = 0
-):
-    duration = hours*3600 + minutes*60 + seconds
-    if duration < 5:
-        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
-        return
-    if winners < 1:
-        await interaction.response.send_message("❌ 得獎人數至少要 1 位", ephemeral=True)
-        return
+active_giveaways = {}
 
+# -----------------------------
+# 抽獎邏輯函式
+# -----------------------------
+async def run_giveaway(message: discord.Message, prize: str, winners: int, duration: int):
     def format_time(sec):
         h, m, s = sec//3600, (sec%3600)//60, sec%60
         return f"{h:02}:{m:02}:{s:02}"
 
-    embed = discord.Embed(
-        title="🎉 抽獎活動 🎉",
-        description=f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！\n⏳ 剩餘時間：{format_time(duration)}",
-        color=discord.Color.purple()
-    )
-    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
-
-    message = await interaction.channel.send(embed=embed)
-    await message.add_reaction("🎉")
-    await interaction.response.send_message(f"✅ 抽獎已開始！訊息 ID：`{message.id}`", ephemeral=True)
-
-    # 倒數更新，每 5 秒刷新一次
-    for remaining in range(duration, 0, -5):
-        embed.description = f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！\n⏳ 剩餘時間：{format_time(remaining)}"
-        await message.edit(embed=embed)
-        await asyncio.sleep(5)
+    try:
+        for remaining in range(duration, 0, -5):
+            embed = discord.Embed(
+                title="🎉 抽獎活動 🎉",
+                description=f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！\n⏳ 剩餘時間：{format_time(remaining)}",
+                color=discord.Color.purple()
+            )
+            embed.set_footer(text=f"舉辦者：{message.author.display_name if message.author else 'Unknown'}")
+            await message.edit(embed=embed)
+            await asyncio.sleep(5)
+    except asyncio.CancelledError:
+        # 如果提前結束或取消，直接跳過倒數
+        pass
 
     # 抓取參加者
-    message = await interaction.channel.fetch_message(message.id)
+    message = await message.channel.fetch_message(message.id)
     users = await message.reactions[0].users().flatten()
     users = [u for u in users if not u.bot]
 
@@ -267,7 +245,7 @@ async def giveaway(
             winners = len(users)
         chosen = random.sample(users, winners)
         mentions = ", ".join([u.mention for u in chosen])
-        await interaction.channel.send(f"🎊 恭喜 {mentions} 獲得 **{prize}**！")
+        await message.channel.send(f"🎊 恭喜 {mentions} 獲得 **{prize}**！")
 
         # 存 JSON
         giveaways = load_giveaways()
@@ -278,7 +256,41 @@ async def giveaway(
         }
         save_giveaways(giveaways)
     else:
-        await interaction.channel.send("😢 沒有人參加抽獎。")
+        await message.channel.send("😢 沒有人參加抽獎。")
+
+# -----------------------------
+# /giveaway 指令
+# -----------------------------
+@bot.tree.command(name="giveaway", description="舉辦抽獎")
+@app_commands.describe(
+    prize="獎品內容",
+    winners="中獎人數",
+    hours="小時",
+    minutes="分鐘",
+    seconds="秒"
+)
+async def giveaway(interaction: discord.Interaction, prize: str, winners: int = 1, hours: int = 0, minutes: int = 0, seconds: int = 0):
+    duration = hours*3600 + minutes*60 + seconds
+    if duration < 5:
+        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
+        return
+    if winners < 1:
+        await interaction.response.send_message("❌ 得獎人數至少要 1 位", ephemeral=True)
+        return
+
+    embed = discord.Embed(
+        title="🎉 抽獎活動 🎉",
+        description=f"獎品：**{prize}**\n中獎人數：{winners}\n點擊 🎉 參加！",
+        color=discord.Color.purple()
+    )
+    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
+
+    message = await interaction.channel.send(embed=embed)
+    await message.add_reaction("🎉")
+    await interaction.response.send_message(f"✅ 抽獎已開始！訊息 ID：`{message.id}`", ephemeral=True)
+
+    task = asyncio.create_task(run_giveaway(message, prize, winners, duration))
+    active_giveaways[message.id] = task
 
 # -----------------------------
 # /reroll 指令
@@ -301,7 +313,7 @@ async def reroll(interaction: discord.Interaction, message_id: str, winners: int
         return
 
     if winners < 1:
-        await interaction.response.send_message("❌ 得獎人數至少要 1 位。", ephemeral=True)
+        await interaction.response.send_message("❌ 得獎人數至少要 1 位", ephemeral=True)
         return
     if winners > len(participants):
         winners = len(participants)
@@ -309,13 +321,46 @@ async def reroll(interaction: discord.Interaction, message_id: str, winners: int
     chosen = random.sample(participants, winners)
     mentions = ", ".join([u.mention for u in chosen])
 
-    # 更新 JSON
     giveaways[message_id]["winners"] = [u.id for u in chosen]
     save_giveaways(giveaways)
 
     await interaction.channel.send(f"🔄 重新抽獎結果：恭喜 {mentions}！")
     await interaction.response.send_message(f"✅ 已重新抽出 {winners} 位新得主！", ephemeral=True)
 
+# -----------------------------
+# /end_giveaway 提前開獎
+# -----------------------------
+@bot.tree.command(name="end_giveaway", description="提前結束抽獎")
+@app_commands.describe(message_id="抽獎訊息 ID")
+async def end_giveaway(interaction: discord.Interaction, message_id: str):
+    message_id = int(message_id)
+    if message_id not in active_giveaways:
+        await interaction.response.send_message("❌ 找不到進行中的抽獎", ephemeral=True)
+        return
+    task = active_giveaways.pop(message_id)
+    task.cancel()
+    await interaction.response.send_message("✅ 抽獎已提前結束，立刻抽獎！", ephemeral=True)
+    message = await interaction.channel.fetch_message(message_id)
+    # 使用預設值重新呼叫抽獎函式，立即完成
+    giveaways = load_giveaways()
+    prize = giveaways.get(str(message_id), {}).get("prize", "未知獎品")
+    winners = len(await message.reactions[0].users().flatten()) if message.reactions else 1
+    await run_giveaway(message, prize, winners, 0)
+
+# -----------------------------
+# /cancel_giveaway 取消抽獎
+# -----------------------------
+@bot.tree.command(name="cancel_giveaway", description="取消進行中的抽獎")
+@app_commands.describe(message_id="抽獎訊息 ID")
+async def cancel_giveaway(interaction: discord.Interaction, message_id: str):
+    message_id = int(message_id)
+    if message_id not in active_giveaways:
+        await interaction.response.send_message("❌ 找不到進行中的抽獎", ephemeral=True)
+        return
+    task = active_giveaways.pop(message_id)
+    task.cancel()
+    await interaction.response.send_message("❌ 抽獎已取消！", ephemeral=True)
+    
 # -----------------------------
 # 自我保活
 # -----------------------------
