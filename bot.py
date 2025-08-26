@@ -4,16 +4,41 @@ from discord.ext import commands, tasks
 from aiohttp import web
 import aiohttp
 
-# Discord Intents
+# -----------------------------
+# Web 伺服器（保活用）
+# -----------------------------
+app = web.Application()
+
+async def handle(request):
+    return web.Response(text="Bot is alive!")
+
+app.add_routes([web.get("/", handle)])
+
+async def start_web():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 10000)))
+    await site.start()
+
+# -----------------------------
+# Discord Bot
+# -----------------------------
+class MyBot(commands.Bot):
+    async def setup_hook(self):
+        # 啟動 Web 伺服器
+        await start_web()
+        # 啟動自我保活任務
+        ping_self.start()
+
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Bot 上線事件
+bot = MyBot(command_prefix="!", intents=intents)
+
+# 上線事件
 @bot.event
 async def on_ready():
-    print(f'✅ Bot is ready! Logged in as {bot.user}')
-    ping_self.start()  # 啟動自我保活任務
+    print(f"✅ Bot is ready! Logged in as {bot.user}")
 
 # 指令範例
 @bot.command()
@@ -35,21 +60,6 @@ async def ping_self():
                     print(f"Pinged {url}, status {resp.status}")
             except Exception as e:
                 print("Ping error:", e)
-
-# Web 伺服器，讓 Railway 免費方案保持活躍
-async def handle(request):
-    return web.Response(text="Bot is alive!")
-
-app = web.Application()
-app.add_routes([web.get("/", handle)])
-runner = web.AppRunner(app)
-
-async def start_web():
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 8000)))
-    await site.start()
-
-bot.loop.create_task(start_web())
 
 # 啟動 Bot
 TOKEN = os.getenv("DISCORD_TOKEN")
