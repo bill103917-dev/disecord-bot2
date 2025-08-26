@@ -146,7 +146,7 @@ async def say(interaction: discord.Interaction, message: str):
     await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
     
     # 機器人再公開發送
-    await interaction.channel.send(f"💬 {message}")
+    await interaction.channel.send(f" {message}")
 
 # -----------------------------
 # 好玩/實用指令
