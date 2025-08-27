@@ -16,19 +16,25 @@ import pytz
 # -----------------------------
 # HTTP server 保活（Render 專用）
 # -----------------------------
+from aiohttp import web
+import os
+import asyncio
+
 async def handle(request):
-    return web.Response(text="Bot is running")
+    return web.Response(text="Bot is alive!")
 
 app = web.Application()
-app.router.add_get("/", handle)
+app.add_routes([web.get("/", handle)])
 
-PORT = int(os.environ.get("PORT", 8080))
+port = int(os.environ.get("PORT", 8080))
 
-async def start_web():
+async def run_web():
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+
+asyncio.get_event_loop().create_task(run_web())
 
 # -----------------------------
 # Discord Bot
