@@ -7,6 +7,9 @@ import aiohttp
 import random
 import asyncio
 
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree   # ✅ 這行很重要！
+
 # -----------------------------
 # Web 伺服器（保活用）
 # -----------------------------
