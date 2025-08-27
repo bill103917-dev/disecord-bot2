@@ -50,7 +50,7 @@ async def start_web():
 
 from datetime import datetime
 
-@bot.tree.command(name="timer", description="設定一個倒數計時器 (秒)")
+@tree.command(name="timer", description="設定一個倒數計時器 (秒)")
 async def timer(interaction: discord.Interaction, seconds: int):
     await interaction.response.send_message(f"⏳ 計時器開始！我會在 {seconds} 秒後提醒你。")
     await asyncio.sleep(seconds)
@@ -58,7 +58,7 @@ async def timer(interaction: discord.Interaction, seconds: int):
     
     #重啟機器人
     
-    @bot.tree.command(name="restart", description="重啟機器人")
+    @tree.command(name="restart", description="重啟機器人")
     async def restart(interaction: discord.Interaction):
     # 只有 Bot 擁有者可以使用
         if interaction.user.id != fufu01063:
@@ -71,7 +71,7 @@ async def timer(interaction: discord.Interaction, seconds: int):
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-@bot.tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
+@tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
 async def alarm(interaction: discord.Interaction, time: str):
     try:
         now = datetime.now()
@@ -129,7 +129,7 @@ def add_win(user_id, amount=1):
     else:
         leaderboard[user_id] = amount
 
-@bot.tree.command(name="leaderboard", description="查看排行榜")
+@tree.command(name="leaderboard", description="查看排行榜")
 async def show_leaderboard(interaction: discord.Interaction):
     if not leaderboard:
         await interaction.response.send_message("目前排行榜沒有資料")
@@ -145,15 +145,15 @@ async def show_leaderboard(interaction: discord.Interaction):
 # -----------------------------
 # 基本指令
 # -----------------------------
-@bot.tree.command(name="ping", description="測試 Bot 是否在線")
+@tree.command(name="ping", description="測試 Bot 是否在線")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong!")
 
-@bot.tree.command(name="hello", description="打招呼")
+@tree.command(name="hello", description="打招呼")
 async def hello(interaction: discord.Interaction):
     await interaction.response.send_message(f"Hello {interaction.user.mention}!")
 
-@bot.tree.command(name="say", description="匿名發言")
+@tree.command(name="say", description="匿名發言")
 @app_commands.describe(message="Bot 要說的內容")
 async def say(interaction: discord.Interaction, message: str):
     await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
@@ -162,26 +162,26 @@ async def say(interaction: discord.Interaction, message: str):
 # -----------------------------
 # 好玩功能
 # -----------------------------
-@bot.tree.command(name="add", description="加法運算")
+@tree.command(name="add", description="加法運算")
 async def add(interaction: discord.Interaction, a: int, b: int):
     await interaction.response.send_message(f"{a} + {b} = {a+b}")
 
-@bot.tree.command(name="sub", description="減法運算")
+@tree.command(name="sub", description="減法運算")
 async def sub(interaction: discord.Interaction, a: int, b: int):
     await interaction.response.send_message(f"{a} - {b} = {a-b}")
 
-@bot.tree.command(name="mul", description="乘法運算")
+@tree.command(name="mul", description="乘法運算")
 async def mul(interaction: discord.Interaction, a: int, b: int):
     await interaction.response.send_message(f"{a} × {b} = {a*b}")
 
-@bot.tree.command(name="div", description="除法運算")
+@tree.command(name="div", description="除法運算")
 async def div(interaction: discord.Interaction, a: int, b: int):
     if b == 0:
         await interaction.response.send_message("❌ 不能除以 0")
     else:
         await interaction.response.send_message(f"{a} ÷ {b} = {a/b}")
 
-@bot.tree.command(name="rps", description="剪刀石頭布")
+@tree.command(name="rps", description="剪刀石頭布")
 @app_commands.describe(choice="你的選擇：rock, paper, scissors")
 async def rps(interaction: discord.Interaction, choice: str):
     options = ["rock", "paper", "scissors"]
@@ -201,7 +201,7 @@ async def rps(interaction: discord.Interaction, choice: str):
         result = "你輸了！"
     await interaction.response.send_message(f"你選擇：{choice}\nBot 選擇：{bot_choice}\n➡ {result}")
 
-@bot.tree.command(name="dice", description="擲骰子")
+@tree.command(name="dice", description="擲骰子")
 async def dice(interaction: discord.Interaction):
     num = random.randint(1, 6)
     await interaction.response.send_message(f"🎲 你擲出了 {num}")
@@ -209,7 +209,7 @@ async def dice(interaction: discord.Interaction):
 # -----------------------------
 # 管理功能
 # -----------------------------
-@bot.tree.command(name="clear", description="清理訊息")
+@tree.command(name="clear", description="清理訊息")
 @app_commands.describe(amount="要刪除的訊息數量")
 async def clear(interaction: discord.Interaction, amount: int):
     if not interaction.user.guild_permissions.manage_messages:
@@ -218,7 +218,7 @@ async def clear(interaction: discord.Interaction, amount: int):
     deleted = await interaction.channel.purge(limit=amount+1)
     await interaction.response.send_message(f"✅ 已刪除 {len(deleted)-1} 則訊息", ephemeral=True)
 
-@bot.tree.command(name="kick", description="踢出成員")
+@tree.command(name="kick", description="踢出成員")
 async def kick(interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
     if not interaction.user.guild_permissions.kick_members:
         await interaction.response.send_message("❌ 你沒有權限踢人", ephemeral=True)
@@ -226,7 +226,7 @@ async def kick(interaction: discord.Interaction, member: discord.Member, reason:
     await member.kick(reason=reason)
     await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
 
-@bot.tree.command(name="ban", description="封禁成員")
+@tree.command(name="ban", description="封禁成員")
 async def ban(interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
     if not interaction.user.guild_permissions.ban_members:
         await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
@@ -237,7 +237,7 @@ async def ban(interaction: discord.Interaction, member: discord.Member, reason: 
 # -----------------------------
 # 公告系統
 # -----------------------------
-@bot.tree.command(name="announce", description="發布公告（管理員限定）")
+@tree.command(name="announce", description="發布公告（管理員限定）")
 @app_commands.describe(title="公告標題", content="公告內容", ping_everyone="是否要 @everyone")
 async def announce(interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
     if not interaction.user.guild_permissions.administrator:
