@@ -244,6 +244,161 @@ async def restart(interaction: discord.Interaction):
     await bot.close()
 
 # -----------------------------
+# 抽獎系統
+# -----------------------------
+class Giveaway(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.active_giveaways = {}
+
+    @app_commands.command(name="giveaway", description="開始一個抽獎")
+    @app_commands.describe(
+        月份="請輸入月份 (1-12)",
+        日期="請輸入日期 (1-31)",
+        小時="請輸入小時 (0-23)",
+        分鐘="請輸入分鐘 (0-59)",
+        獎品="要抽出的獎品",
+        人數="中獎人數，預設為 1",
+        限制角色="限定參加的身分組 (可選)"
+    )
+    async def giveaway(
+        self,
+        interaction: discord.Interaction,
+        月份: int,
+        日期: int,
+        小時: int,
+        分鐘: int,
+        獎品: str,
+        人數: int = 1,
+        限制角色: discord.Role = None
+    ):
+        tz = pytz.timezone("Asia/Taipei")
+        now = datetime.now(tz)
+
+        # 補上今年，若已過則往下一年
+        year = now.year
+        end_time = datetime(year, 月份, 日期, 小時, 分鐘, tzinfo=tz)
+        if end_time <= now:
+            year += 1
+            end_time = datetime(year, 月份, 日期, 小時, 分鐘, tzinfo=tz)
+
+        if 人數 < 1:
+            await interaction.response.send_message("❌ 中獎人數必須至少 1！", ephemeral=True)
+            return
+
+        def create_embed():
+            delta = end_time - datetime.now(tz)
+            total_minutes = max(int(delta.total_seconds() // 60), 0)
+            hours, minutes = divmod(total_minutes, 60)
+            desc = (
+                f"獎品：**{獎品}**\n"
+                f"結束時間：{end_time.strftime('%m月%d日 %H:%M')}\n"
+                f"中獎人數：{人數}\n"
+                + (f"限定身分組：{限制角色.mention}\n" if 限制角色 else "") +
+                f"剩餘時間：{hours}時{minutes}分（每分鐘更新）\n"
+                "👉 輸入 `/join` 或點擊 🎉 來參加！"
+            )
+            return discord.Embed(title="🎉 抽獎活動 🎉", description=desc, color=discord.Color.gold())
+
+        msg = await interaction.channel.send(embed=create_embed())
+        await msg.add_reaction("🎉")
+
+        participants = set()
+        self.active_giveaways[msg.id] = {
+            "prize": 獎品,
+            "participants": participants,
+            "message": msg,
+            "end_time": end_time,
+            "ended": False,
+            "host": interaction.user.id,
+            "winners": 人數,
+            "role": 限制角色.id if 限制角色 else None,
+            "one_minute_notified": False,
+            "ten_seconds_notified": False
+        }
+
+        await interaction.response.send_message(
+            f"✅ 抽獎開始！獎品：{獎品}，中獎人數：{人數}，結束時間：{end_time.strftime('%m月%d日 %H:%M')}",
+            ephemeral=True
+        )
+
+        ten_seconds_msg = None  # 用來更新最後 10 秒倒數
+
+        # 每分鐘更新剩餘時間
+        while datetime.now(tz) < end_time and not self.active_giveaways[msg.id]["ended"]:
+            await msg.edit(embed=create_embed())
+            delta = end_time - datetime.now(tz)
+
+            # 剩餘 1 分鐘提醒
+            if delta.total_seconds() <= 60 and not self.active_giveaways[msg.id]["one_minute_notified"]:
+                await interaction.channel.send(f"⏰ 抽獎「{獎品}」還剩 1 分鐘！快來參加！")
+                self.active_giveaways[msg.id]["one_minute_notified"] = True
+
+            # 剩餘 10 秒倒數
+            if delta.total_seconds() <= 10 and not self.active_giveaways[msg.id]["ten_seconds_notified"]:
+                for i in range(10, 0, -1):
+                    if ten_seconds_msg is None:
+                        ten_seconds_msg = await interaction.channel.send(f"⏱️ 抽獎「{獎品}」 {i} 秒後結束！")
+                    else:
+                        await ten_seconds_msg.edit(content=f"⏱️ 抽獎「{獎品}」 {i} 秒後結束！")
+                    await asyncio.sleep(1)
+                self.active_giveaways[msg.id]["ten_seconds_notified"] = True
+                if ten_seconds_msg:
+                    await ten_seconds_msg.delete()
+                break
+
+            await asyncio.sleep(60)
+
+        if not self.active_giveaways[msg.id]["ended"]:
+            await self.end_giveaway(msg.id)
+
+    @app_commands.command(name="join", description="參加抽獎")
+    async def join(self, interaction: discord.Interaction):
+        for giveaway_id, data in self.active_giveaways.items():
+            if not data["ended"]:
+                if data["role"] and data["role"] not in [r.id for r in interaction.user.roles]:
+                    await interaction.response.send_message("❌ 你沒有參加這個抽獎的資格！", ephemeral=True)
+                    return
+                data["participants"].add(interaction.user)
+                await interaction.response.send_message("🎉 你已經參加抽獎！", ephemeral=True)
+                return
+        await interaction.response.send_message("❌ 目前沒有正在進行的抽獎。", ephemeral=True)
+
+    async def end_giveaway(self, msg_id):
+        data = self.active_giveaways[msg_id]
+        data["ended"] = True
+        prize = data["prize"]
+        participants = list(data["participants"])
+        winners_num = data["winners"]
+
+        if len(participants) >= winners_num:
+            winners = random.sample(participants, winners_num)
+            winners_mentions = ", ".join([w.mention for w in winners])
+            embed = discord.Embed(
+                title="🏆 抽獎結束！",
+                description=f"🎉 恭喜 {winners_mentions} 獲得 **{prize}**！",
+                color=discord.Color.green()
+            )
+        elif participants:
+            winners_mentions = ", ".join([w.mention for w in participants])
+            embed = discord.Embed(
+                title="🏆 抽獎結束！",
+                description=f"🎉 人數不足，所有參加者都中獎！({winners_mentions})\n獎品：**{prize}**",
+                color=discord.Color.orange()
+            )
+        else:
+            embed = discord.Embed(
+                title="🏆 抽獎結束！",
+                description=f"😢 沒有人參加抽獎。獎品 **{prize}** 流標。",
+                color=discord.Color.red()
+            )
+
+        await data["message"].edit(embed=embed)
+
+
+async def setup(bot):
+    await bot.add_cog(Giveaway(bot))
+# -----------------------------
 # 啟動 Bot
 # -----------------------------
 TOKEN = os.getenv("DISCORD_TOKEN")
