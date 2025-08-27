@@ -237,34 +237,93 @@ async def announce(interaction: discord.Interaction, title: str, content: str, p
 # -----------------------------
 # 抽獎系統
 # -----------------------------
-@bot.tree.command(name="giveaway", description="舉辦抽獎")
-@app_commands.describe(prize="獎品內容", duration="抽獎持續時間（秒）")
-async def giveaway(interaction: discord.Interaction, prize: str, duration: int):
-    if duration < 5:
-        await interaction.response.send_message("❌ 抽獎時間至少要 5 秒", ephemeral=True)
+# -----------------------------
+# 全域變數：抽獎狀態
+# -----------------------------
+active_giveaways = {}
+
+# -----------------------------
+# /giveaway 開始抽獎
+# -----------------------------
+@tree.command(name="giveaway", description="開啟抽獎")
+@app_commands.describe(
+    prize="獎品名稱",
+    duration="持續時間（秒）",
+    role="限定參加的角色（可不填）"
+)
+async def giveaway(interaction: discord.Interaction, prize: str, duration: int, role: discord.Role = None):
+    if interaction.channel.id in active_giveaways:
+        await interaction.response.send_message("⚠️ 這個頻道已有進行中的抽獎！", ephemeral=True)
         return
 
-    embed = discord.Embed(title="🎉 抽獎活動 🎉", description=f"獎品：**{prize}**\n點擊 🎉 參加！\n⏳ {duration} 秒後抽出得主", color=discord.Color.purple())
-    embed.set_footer(text=f"舉辦者：{interaction.user.display_name}")
-    
-    message = await interaction.channel.send(embed=embed)
-    await message.add_reaction("🎉")
-    await interaction.response.send_message("✅ 抽獎已開始！", ephemeral=True)
+    embed = discord.Embed(
+        title="🎉 抽獎開始！",
+        description=f"獎品：**{prize}**\n剩餘時間：{str(timedelta(seconds=duration))}\n"
+                    f"請輸入訊息參加！（{('限定角色：' + role.name) if role else '所有人可參加'})",
+        color=discord.Color.green()
+    )
+    await interaction.response.send_message(embed=embed)
+    active_giveaways[interaction.channel.id] = {"prize": prize, "role": role, "active": True}
 
-    # 等待時間
-    await asyncio.sleep(duration)
+    # 每秒更新剩餘時間
+    for i in range(duration, 0, -1):
+        if not active_giveaways.get(interaction.channel.id, {}).get("active"):
+            return
+        await asyncio.sleep(1)
+        new_embed = embed.copy()
+        new_embed.description = f"獎品：**{prize}**\n剩餘時間：{str(timedelta(seconds=i))}"
+        await (await interaction.original_response()).edit(embed=new_embed)
 
-    # 抓取參加者
-    message = await interaction.channel.fetch_message(message.id)
-    users = await message.reactions[0].users().flatten()
-    users = [u for u in users if not u.bot]
+    # 時間到 -> 開獎
+    await end_giveaway(interaction.channel)
 
-    if users:
-        winner = random.choice(users)
-        await interaction.channel.send(f"🎊 恭喜 {winner.mention} 獲得 **{prize}**！")
+# -----------------------------
+# /endgiveaway 提前開獎
+# -----------------------------
+@tree.command(name="endgiveaway", description="提前結束抽獎")
+async def endgiveaway(interaction: discord.Interaction):
+    if interaction.channel.id not in active_giveaways:
+        await interaction.response.send_message("⚠️ 這個頻道沒有進行中的抽獎", ephemeral=True)
+        return
+    await interaction.response.send_message("✅ 抽獎已提前結束")
+    await end_giveaway(interaction.channel)
+
+# -----------------------------
+# /cancelgiveaway 取消抽獎
+# -----------------------------
+@tree.command(name="cancelgiveaway", description="取消抽獎")
+async def cancelgiveaway(interaction: discord.Interaction):
+    if interaction.channel.id not in active_giveaways:
+        await interaction.response.send_message("⚠️ 這個頻道沒有進行中的抽獎", ephemeral=True)
+        return
+    active_giveaways[interaction.channel.id]["active"] = False
+    del active_giveaways[interaction.channel.id]
+    await interaction.response.send_message("❌ 抽獎已取消！")
+
+# -----------------------------
+# 開獎邏輯
+# -----------------------------
+async def end_giveaway(channel: discord.TextChannel):
+    giveaway = active_giveaways.get(channel.id)
+    if not giveaway:
+        return
+    prize = giveaway["prize"]
+    role = giveaway["role"]
+
+    messages = [m async for m in channel.history(limit=200)]
+    participants = {m.author for m in messages if not m.author.bot}
+
+    if role:
+        participants = {p for p in participants if role in p.roles}
+
+    if participants:
+        winner = random.choice(list(participants))
+        await channel.send(f"🎊 恭喜 {winner.mention} 抽中 **{prize}**！")
     else:
-        await interaction.channel.send("😢 沒有人參加抽獎。")
+        await channel.send("⚠️ 沒有人參加抽獎！")
 
+    del active_giveaways[channel.id]
+    
 # -----------------------------
 # 自我保活
 # -----------------------------
