@@ -45,7 +45,10 @@ asyncio.get_event_loop().create_task(run_web())
 # main.py
 bot.load_extension("cogs.giveaway")  # 假設抽獎程式在 cogs/giveaway.py
 
-await bot.tree.sync()
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"Logged in as {bot.user} and commands synced!")
 
 # -----------------------------
 # Intents 設定
