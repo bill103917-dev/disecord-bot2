@@ -40,23 +40,17 @@ async def start_web():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 10000)))
     await site.start()
+    
+#計時器   
 
 from datetime import datetime
 
-# -----------------------------
-# /timer 倒數計時
-# -----------------------------
-@tree.command(name="timer", description="設定一個倒數計時")
-@app_commands.describe(seconds="倒數秒數", message="提醒訊息（可選）")
-async def timer(interaction: discord.Interaction, seconds: int, message: str = "時間到啦！"):
-    if seconds <= 0:
-        await interaction.response.send_message("⚠️ 秒數必須大於 0", ephemeral=True)
-        return
-
-    await interaction.response.send_message(f"⏳ 已設定計時器：{seconds} 秒後提醒！")
+@tree.command(name="timer", description="設定一個倒數計時器 (秒)")
+async def timer(interaction: discord.Interaction, seconds: int):
+    await interaction.response.send_message(f"⏳ 計時器開始！我會在 {seconds} 秒後提醒你。")
     await asyncio.sleep(seconds)
-    await interaction.channel.send(f"⏰ {interaction.user.mention} {message}")
-
+    await interaction.followup.send(f"⏰ {interaction.user.mention} 時間到！({seconds} 秒)")
+    
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
