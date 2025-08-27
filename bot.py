@@ -154,28 +154,56 @@ async def on_ready():
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-from datetime import datetime, timedelta
-import asyncio
 import discord
 from discord.ext import commands
 from discord import app_commands
+from datetime import datetime, timedelta
+import asyncio
+import pytz  # pip install pytz
 
+
+# 可用城市與對應時區
+CITY_TIMEZONES = {
+    "台北": "Asia/Taipei",
+    "東京": "Asia/Tokyo",
+    "首爾": "Asia/Seoul",
+    "香港": "Asia/Hong_Kong",
+    "倫敦": "Europe/London",
+    "巴黎": "Europe/Paris",
+    "紐約": "America/New_York",
+    "洛杉磯": "America/Los_Angeles",
+    "雪梨": "Australia/Sydney"
+}
 
 @bot.tree.command(name="alarm", description="設定鬧鐘")
-@app_commands.describe(hour="小時(0-23)", minute="分鐘(0-59)")
-async def alarm(interaction: discord.Interaction, hour: int, minute: int):
-    now = datetime.now()
-    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    
-    if target < now:
-        target += timedelta(days=1)  # 如果時間已過，設定到明天
+@app_commands.describe(city="城市名稱", hour="小時 (24H)", minute="分鐘")
+async def alarm(interaction: discord.Interaction, city: str, hour: int, minute: int):
+    if city not in CITY_TIMEZONES:
+        await interaction.response.send_message(f"❌ 不支援的城市，請選擇: {', '.join(CITY_TIMEZONES.keys())}", ephemeral=True)
+        return
 
-    seconds = (target - now).total_seconds()
-    await interaction.response.send_message(f"⏰ 鬧鐘已設定，將在 {int(seconds)} 秒後提醒！")
+    tz = pytz.timezone(CITY_TIMEZONES[city])
+    now = datetime.now(tz)
+    target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-    await asyncio.sleep(seconds)  # 非阻塞等待
+    # 如果設定時間已過，則自動設到隔天
+    if target_time < now:
+        target_time += timedelta(days=1)
 
-    await interaction.channel.send(f"🔔 {interaction.user.mention}，鬧鐘到囉！")
+    delta_seconds = (target_time - now).total_seconds()
+
+    await interaction.response.send_message(f"⏰ 鬧鐘已設定在 {city} 時間 {target_time.strftime('%H:%M')}，還有 {int(delta_seconds)} 秒後提醒！")
+
+    # 非阻塞等待
+    await asyncio.sleep(delta_seconds)
+
+    # 到時間後提醒
+    await interaction.channel.send(f"🔔 {interaction.user.mention}，現在是 {city} {target_time.strftime('%H:%M')}，鬧鐘到囉！")
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動: {bot.user}")
+    await tree.sync()
         
 
 
