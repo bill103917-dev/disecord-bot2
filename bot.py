@@ -81,21 +81,35 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
-tree = bot.tree
+
+def parse_time(timestr: str) -> int:
+    """將 'HH:MM:SS' 或 'MM:SS' 轉成總秒數"""
+    parts = timestr.split(":")
+    parts = [int(p) for p in parts]
+    if len(parts) == 3:  # HH:MM:SS
+        hours, minutes, seconds = parts
+    elif len(parts) == 2:  # MM:SS
+        hours = 0
+        minutes, seconds = parts
+    else:
+        raise ValueError("格式錯誤，請輸入 HH:MM:SS 或 MM:SS")
+    return hours * 3600 + minutes * 60 + seconds
 
 @bot.tree.command(name="timer", description="設定計時器（到時間後可選擇是否繼續）")
-@app_commands.describe(seconds="計時時間（秒）")
-async def timer(interaction: discord.Interaction, seconds: int):
-    await interaction.response.send_message(f"⏳ 計時器開始：{seconds} 秒")
+@app_commands.describe(timestr="計時時間，例如 01:30:00 或 25:00")
+async def timer(interaction: discord.Interaction, timestr: str):
+    try:
+        total_seconds = parse_time(timestr)
+    except ValueError as e:
+        await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+        return
 
-    # 等待倒數
-    await asyncio.sleep(seconds)
+    await interaction.response.send_message(f"⏳ 計時器開始：{timestr}")
 
-    # 到時間後提醒使用者
+    await asyncio.sleep(total_seconds)
+
     await interaction.channel.send(
-        f"⏰ {interaction.user.mention}，計時到囉！你要繼續下一個計時器嗎？ (請輸入 yes 或 no)"
+        f"⏰ {interaction.user.mention}，計時到囉！你要繼續下一個計時器嗎？ (回覆並請輸入 yes 或 no)"
     )
 
     def check(m):
@@ -108,17 +122,13 @@ async def timer(interaction: discord.Interaction, seconds: int):
     try:
         msg = await bot.wait_for("message", check=check, timeout=60)
         if msg.content.lower() == "yes":
-            await interaction.channel.send("✅ 請輸入新的秒數")
+            await interaction.channel.send("✅ 請輸入新的時間（HH:MM:SS 或 MM:SS）")
             msg2 = await bot.wait_for(
                 "message",
                 check=lambda m: m.author == interaction.user and m.channel == interaction.channel,
                 timeout=60
             )
-            try:
-                new_seconds = int(msg2.content)
-                await timer(interaction, new_seconds)  # 遞迴呼叫新的計時器
-            except ValueError:
-                await interaction.channel.send("❌ 無效的數字，計時器結束")
+            await timer(interaction, msg2.content)  # 遞迴呼叫新的計時器
         else:
             await interaction.channel.send("⏹ 計時器結束")
     except asyncio.TimeoutError:
@@ -127,8 +137,8 @@ async def timer(interaction: discord.Interaction, seconds: int):
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已啟動: {bot.user}")
-    await tree.sync()  # 確保 Slash 指令同步到 Discord
-    
+    await tree.sync()
+
     #重啟機器人
     
     @bot.tree.command(name="restart", description="重啟機器人")
