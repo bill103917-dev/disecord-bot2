@@ -62,7 +62,7 @@ async def on_ready():
     await bot.tree.sync()
     print(f"Logged in as {bot.user} and commands synced!")
 
-bot = commands.Bot(...)
+
 
 # -----------------------------
 # Intents 設定
@@ -79,6 +79,8 @@ async def on_ready():
     print(f"✅ Bot 已啟動: {bot.user}")
     synced = await tree.sync()
     print(f"📌 已同步 {len(synced)} 個指令")
+    
+    bot = commands.Bot(...)
     
 # -----------------------------
 # Discord Bot
