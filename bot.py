@@ -185,25 +185,6 @@ class AdminCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="announce", description="發布公告（管理員限定）")
-    async def announce(self, interaction: discord.Interaction, title: str, content: str, ping_everyone: bool = False):
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
-            return
-        embed = discord.Embed(title=f"📢 {title}", description=content, color=discord.Color.orange())
-        embed.set_footer(text=f"發布者：{interaction.user.display_name}")
-        mention = "@everyone" if ping_everyone else ""
-        await interaction.channel.send(mention, embed=embed)
-        await interaction.response.send_message("✅ 公告已發布！", ephemeral=True)
-
-    @app_commands.command(name="clear", description="清理訊息")
-    async def clear(self, interaction: discord.Interaction, amount: int):
-        if not interaction.user.guild_permissions.manage_messages:
-            await interaction.response.send_message("❌ 你沒有權限刪除訊息", ephemeral=True)
-            return
-        deleted = await interaction.channel.purge(limit=amount+1)
-        await interaction.response.send_message(f"✅ 已刪除 {len(deleted)-1} 則訊息", ephemeral=True)
-
     @app_commands.command(name="kick", description="踢出成員")
     async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
         if not interaction.user.guild_permissions.kick_members:
@@ -212,14 +193,16 @@ class AdminCog(commands.Cog):
         await member.kick(reason=reason)
         await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
 
-        @app_commands.command(name="ban", description="封禁成員")
-async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+    @app_commands.command(name="ban", description="封禁成員")
+    async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
         if not interaction.user.guild_permissions.ban_members:
             await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
             return
         await member.ban(reason=reason)
         await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
+
+#重啟機器人—————————————
     @app_commands.command(name="restart", description="重啟機器人（只有指定使用者可執行）")
     async def restart(self, interaction: discord.Interaction):
         if interaction.user.id != OWNER_ID:
