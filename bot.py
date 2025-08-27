@@ -28,7 +28,7 @@ from datetime import datetime
 # -----------------------------
 # /timer 倒數計時
 # -----------------------------
-@bot.tree.command(name="timer", description="設定一個倒數計時")
+@tree.command(name="timer", description="設定一個倒數計時")
 @app_commands.describe(seconds="倒數秒數", message="提醒訊息（可選）")
 async def timer(interaction: discord.Interaction, seconds: int, message: str = "時間到啦！"):
     if seconds <= 0:
@@ -42,7 +42,7 @@ async def timer(interaction: discord.Interaction, seconds: int, message: str = "
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-@bot.tree.command(name="alarm", description="設定一個鬧鐘（例如 21:30）")
+@tree.command(name="alarm", description="設定一個鬧鐘（例如 21:30）")
 @app_commands.describe(time_str="時間 (格式：HH:MM)", message="提醒訊息（可選）")
 async def alarm(interaction: discord.Interaction, time_str: str, message: str = "時間到啦！"):
     try:
