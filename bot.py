@@ -285,6 +285,15 @@ async def ping_self():
                     print(f"Pinged {url}, status {resp.status}")
             except Exception as e:
                 print("Ping error:", e)
+                
+                @bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動！登入身分：{bot.user}")
+    try:
+        synced = await tree.sync()
+        print(f"📌 已同步 {len(synced)} 個斜線指令")
+    except Exception as e:
+        print(f"同步指令失敗: {e}")
 
 # -----------------------------
 # 啟動 Bot
