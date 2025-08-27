@@ -57,7 +57,7 @@ async def timer(interaction: discord.Interaction, seconds: int):
     async def restart(interaction: discord.Interaction):
     # 只有 Bot 擁有者可以使用
         if interaction.user.id != fufu01063:
-        await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
+            await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
         return
 
     await interaction.response.send_message("🔄 機器人正在重啟...")
