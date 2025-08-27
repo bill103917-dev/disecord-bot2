@@ -43,7 +43,8 @@ async def main():
     asyncio.create_task(run_web())
 
     async with bot:
-        await setup(bot)           # 加載 Cog
+        # 直接加 Cog，不用額外呼叫 setup()
+        await bot.add_cog(Giveaway(bot))
         await bot.start(TOKEN)
 
 asyncio.run(main())
