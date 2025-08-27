@@ -213,7 +213,7 @@ class AdminCog(commands.Cog):
         await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
 
         @app_commands.command(name="ban", description="封禁成員")
-        async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+            async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
         if not interaction.user.guild_permissions.ban_members:
             await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
             return
