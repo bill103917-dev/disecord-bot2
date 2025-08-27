@@ -47,24 +47,24 @@ async def main():
     intents.members = True
 
 
+
+async def main():
+    TOKEN = os.getenv("DISCORD_TOKEN")
+
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.members = True
+    bot = commands.Bot(command_prefix="!", intents=intents)
+    
     # 啟動 web server
     asyncio.create_task(run_web())
 
     async with bot:
-        # 直接加 Cog，不用額外呼叫 setup()
+        # 加載你的 Cog，例如 Giveaway
         await bot.add_cog(Giveaway(bot))
         await bot.start(TOKEN)
 
 asyncio.run(main())
-
-# -----------------------------
-# Discord Bot
-# -----------------------------
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
-tree = bot.tree
 
 # -----------------------------
 # Ping 自己 Task
@@ -393,4 +393,3 @@ async def giveaway(
 bot.add_cog(Giveaway(bot))
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-bot.run(TOKEN)
