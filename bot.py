@@ -33,6 +33,7 @@ async def run_web():
 
 # 啟動 Web Server
 async def main():
+    commands.Bot(...)
     asyncio.create_task(run_web())  # 啟動 web server
     async with bot:
         await setup(bot)           # 加載 Cog
