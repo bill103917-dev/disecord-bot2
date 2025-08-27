@@ -15,7 +15,6 @@ import random
 import os
 from datetime import datetime, timedelta
 
-bot = commands.Bot(...)
 
 from aiohttp import web
 
@@ -32,6 +31,8 @@ import asyncio
 async def handle(request):
     return web.Response(text="Bot is running")
 
+bot = commands.Bot(...)
+
 app = web.Application()
 app.router.add_get("/", handle)
 
@@ -43,6 +44,15 @@ async def run_web():
     await site.start()
 
 asyncio.get_event_loop().create_task(run_web())
+
+import discord
+from discord.ext import commands
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
 
 # main.py
 bot.load_extension("cogs.giveaway")  # 假設抽獎程式在 cogs/giveaway.py
