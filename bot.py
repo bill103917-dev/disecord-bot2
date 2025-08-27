@@ -54,25 +54,24 @@ async def timer(interaction: discord.Interaction, seconds: int):
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-@tree.command(name="alarm", description="設定一個鬧鐘（例如 21:30）")
-@app_commands.describe(time_str="時間 (格式：HH:MM)", message="提醒訊息（可選）")
-async def alarm(interaction: discord.Interaction, time_str: str, message: str = "時間到啦！"):
+@tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
+async def alarm(interaction: discord.Interaction, time: str):
     try:
         now = datetime.now()
-        target_time = datetime.strptime(time_str, "%H:%M").replace(
-            year=now.year, month=now.month, day=now.day
-        )
-        if target_time < now:  # 如果時間已經過了，就設定到隔天
-            target_time = target_time + timedelta(days=1)
+        alarm_time = datetime.strptime(time, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
 
-        wait_seconds = int((target_time - now).total_seconds())
-        await interaction.response.send_message(f"⏳ 已設定鬧鐘：將在 {time_str} 提醒！")
+        # 如果時間已經過了，設為明天
+        if alarm_time < now:
+            alarm_time += timedelta(days=1)
 
-        await asyncio.sleep(wait_seconds)
-        await interaction.channel.send(f"⏰ {interaction.user.mention} {message}")
+        seconds_left = (alarm_time - now).total_seconds()
+
+        await interaction.response.send_message(f"⏰ 鬧鐘已設定，會在 {time} 提醒你！")
+        await asyncio.sleep(seconds_left)
+        await interaction.followup.send(f"🔔 {interaction.user.mention} 現在時間 {time}，鬧鐘響了！")
 
     except ValueError:
-        await interaction.response.send_message("⚠️ 時間格式錯誤，請使用 HH:MM (例如 21:30)", ephemeral=True)
+        await interaction.response.send_message("❌ 時間格式錯誤，請用 HH:MM，例如 08:30。", ephemeral=True)
         
 # -----------------------------
 # Discord Bot
