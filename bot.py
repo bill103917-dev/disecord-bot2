@@ -42,6 +42,11 @@ async def run_web():
 
 asyncio.get_event_loop().create_task(run_web())
 
+# main.py
+bot.load_extension("cogs.giveaway")  # 假設抽獎程式在 cogs/giveaway.py
+
+await bot.tree.sync()
+
 # -----------------------------
 # Intents 設定
 # -----------------------------
