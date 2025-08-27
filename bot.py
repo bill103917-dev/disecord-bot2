@@ -492,5 +492,5 @@ async def on_ready():
 # 啟動 Bot
 # -----------------------------
 
- TOKEN = os.getenv("DISCORD_TOKEN")
+TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
