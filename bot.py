@@ -25,6 +25,11 @@ intents.message_content = True   # 如果你要讓 bot 能讀取訊息內容
 bot = commands.Bot(command_prefix="/", intents=intents)
 tree = bot.tree   # ✅ 這行很重要！
 
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動: {bot.user}")
+    synced = await tree.sync()
+    print(f"📌 已同步 {len(synced)} 個指令")
 # -----------------------------
 # Web 伺服器（保活用）
 # -----------------------------
