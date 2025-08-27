@@ -286,7 +286,7 @@ async def ping_self():
             except Exception as e:
                 print("Ping error:", e)
                 
-                @bot.event
+@bot.event
 async def on_ready():
     print(f"✅ Bot 已啟動！登入身分：{bot.user}")
     try:
