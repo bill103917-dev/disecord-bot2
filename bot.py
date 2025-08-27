@@ -7,6 +7,20 @@ from aiohttp import web
 import aiohttp
 import random
 import asyncio
+import discord
+from discord.ext import commands
+from discord import app_commands
+import asyncio
+import random
+import os
+from datetime import datetime, timedelta
+
+# -----------------------------
+# Intents 設定
+# -----------------------------
+intents = discord.Intents.default()
+intents.message_content = True   # 如果你要讓 bot 能讀取訊息內容
+
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 tree = bot.tree   # ✅ 這行很重要！
