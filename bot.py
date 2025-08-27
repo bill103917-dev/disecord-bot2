@@ -33,17 +33,6 @@ async def handle(request):
 
 
 
-app = web.Application()
-app.router.add_get("/", handle)
-
-async def run_web():
-    port = int(os.environ.get("PORT", 8080))
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-
-asyncio.get_event_loop().create_task(run_web())
 
 import discord
 from discord.ext import commands
@@ -81,6 +70,24 @@ async def on_ready():
     print(f"📌 已同步 {len(synced)} 個指令")
     
     bot = commands.Bot(...)
+    
+    from aiohttp import web
+import os, asyncio
+
+async def handle(request):
+    return web.Response(text="Bot is running")
+
+app = web.Application()
+app.router.add_get("/", handle)
+
+port = int(os.environ.get("PORT", 8080))  # Render 自動提供 PORT
+async def run_web():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+asyncio.get_event_loop().create_task(run_web())
     
 # -----------------------------
 # Discord Bot
