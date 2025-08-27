@@ -15,6 +15,23 @@ import random
 import os
 from datetime import datetime, timedelta
 
+from aiohttp import web
+
+async def handle(request):
+    return web.Response(text="Bot is running")
+
+app = web.Application()
+app.router.add_get("/", handle)
+
+import asyncio
+async def run_web():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)  # Render 預設 8080
+    await site.start()
+
+asyncio.get_event_loop().create_task(run_web())
+
 # -----------------------------
 # Intents 設定
 # -----------------------------
