@@ -31,7 +31,7 @@ import asyncio
 async def handle(request):
     return web.Response(text="Bot is running")
 
-bot = commands.Bot(...)
+
 
 app = web.Application()
 app.router.add_get("/", handle)
@@ -61,6 +61,8 @@ bot.load_extension("cogs.giveaway")  # 假設抽獎程式在 cogs/giveaway.py
 async def on_ready():
     await bot.tree.sync()
     print(f"Logged in as {bot.user} and commands synced!")
+
+bot = commands.Bot(...)
 
 # -----------------------------
 # Intents 設定
