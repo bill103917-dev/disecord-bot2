@@ -144,7 +144,7 @@ async def on_ready():
     #重啟機器人
     TOKEN = os.getenv("DISCORD_TOKEN")
     
-    import discord
+import discord
 from discord.ext import commands
 from discord import app_commands
 
@@ -492,4 +492,5 @@ async def on_ready():
 # 啟動 Bot
 # -----------------------------
 
+ TOKEN = os.getenv("DISCORD_TOKEN")
 bot.run(TOKEN)
