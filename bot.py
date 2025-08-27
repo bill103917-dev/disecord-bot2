@@ -59,6 +59,8 @@ bot = MyBot()
 async def on_ready():
     print(f"✅ Bot 已啟動！登入身分：{bot.user}")
     
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    
 # -----------------------------
 # Web 伺服器（保活用）
 # -----------------------------
@@ -140,16 +142,39 @@ async def on_ready():
     await tree.sync()
 
     #重啟機器人
+    TOKEN = os.getenv("DISCORD_TOKEN")
     
-    @bot.tree.command(name="restart", description="重啟機器人")
-    async def restart(interaction: discord.Interaction):
-    # 只有 Bot 擁有者可以使用
-        if interaction.user.id != fufu01063:
-            await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
+    import discord
+from discord.ext import commands
+from discord import app_commands
+
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
+
+# 你的 Discord ID，只有你可以執行重啟
+OWNER_ID = 1238436456041676853  # <-- 換成你的數字ID
+
+@tree.command(
+    name="restart",
+    description="重啟機器人（只有指定使用者可執行）"
+)
+async def restart(interaction: discord.Interaction):
+    # 檢查使用者是否為擁有者
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
         return
 
-    await interaction.response.send_message("🔄 機器人正在重啟...")
-    await bot.close()  # 安全關閉 Bot，部署平台會自動重啟
+    await interaction.response.send_message("🔄 機器人正在重啟...", ephemeral=True)
+    await bot.close()  # 關閉 Bot，部署平台會自動重啟
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動: {bot.user}")
+    # 同步全域指令
+    synced = await tree.sync()
+    print(f"📌 已同步 {len(synced)} 個全域指令")
+
     
   #鬧鐘——————————————————————————  
 import discord
@@ -466,5 +491,5 @@ async def on_ready():
 # -----------------------------
 # 啟動 Bot
 # -----------------------------
-TOKEN = os.getenv("DISCORD_TOKEN")
+
 bot.run(TOKEN)
