@@ -30,6 +30,13 @@ async def run_web():
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
     print(f"✅ Web server running on port {PORT}")
+    
+    # 先定義 Giveaway Cog
+class Giveaway(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.active_giveaways = {}
+    # 這裡放所有 giveaway 指令和函式...
 
 # 啟動 Web Server
 async def main():
