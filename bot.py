@@ -32,7 +32,13 @@ async def run_web():
     print(f"✅ Web server running on port {PORT}")
 
 # 啟動 Web Server
-asyncio.create_task(run_web())
+async def main():
+    asyncio.create_task(run_web())  # 啟動 web server
+    async with bot:
+        await setup(bot)           # 加載 Cog
+        await bot.start(TOKEN)     # 啟動 Bot
+
+asyncio.run(main())
 
 # -----------------------------
 # Discord Bot
