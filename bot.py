@@ -22,7 +22,7 @@ intents = discord.Intents.default()
 intents.message_content = True   # 如果你要讓 bot 能讀取訊息內容
 
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 tree = bot.tree   # ✅ 這行很重要！
 
 # -----------------------------
@@ -45,7 +45,7 @@ async def start_web():
 
 from datetime import datetime
 
-@tree.command(name="timer", description="設定一個倒數計時器 (秒)")
+@bot.tree.command(name="timer", description="設定一個倒數計時器 (秒)")
 async def timer(interaction: discord.Interaction, seconds: int):
     await interaction.response.send_message(f"⏳ 計時器開始！我會在 {seconds} 秒後提醒你。")
     await asyncio.sleep(seconds)
@@ -53,7 +53,7 @@ async def timer(interaction: discord.Interaction, seconds: int):
     
     #重啟機器人
     
-    @tree.command(name="restart", description="重啟機器人")
+    @bot.tree.command(name="restart", description="重啟機器人")
     async def restart(interaction: discord.Interaction):
     # 只有 Bot 擁有者可以使用
         if interaction.user.id != fufu01063:
