@@ -76,14 +76,58 @@ async def start_web():
     await site.start()
     
 #計時器   
+import discord
+from discord.ext import commands
+from discord import app_commands
+import asyncio
 
-from datetime import datetime
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
-@bot.tree.command(name="timer", description="設定一個倒數計時器 (秒)")
+@bot.tree.command(name="timer", description="設定計時器（到時間後可選擇是否繼續）")
+@app_commands.describe(seconds="計時時間（秒）")
 async def timer(interaction: discord.Interaction, seconds: int):
-    await interaction.response.send_message(f"⏳ 計時器開始！我會在 {seconds} 秒後提醒你。")
+    await interaction.response.send_message(f"⏳ 計時器開始：{seconds} 秒")
+
+    # 等待倒數
     await asyncio.sleep(seconds)
-    await interaction.followup.send(f"⏰ {interaction.user.mention} 時間到！({seconds} 秒)")
+
+    # 到時間後提醒使用者
+    await interaction.channel.send(
+        f"⏰ {interaction.user.mention}，計時到囉！你要繼續下一個計時器嗎？ (請輸入 yes 或 no)"
+    )
+
+    def check(m):
+        return (
+            m.author == interaction.user and
+            m.channel == interaction.channel and
+            m.content.lower() in ["yes", "no"]
+        )
+
+    try:
+        msg = await bot.wait_for("message", check=check, timeout=60)
+        if msg.content.lower() == "yes":
+            await interaction.channel.send("✅ 請輸入新的秒數")
+            msg2 = await bot.wait_for(
+                "message",
+                check=lambda m: m.author == interaction.user and m.channel == interaction.channel,
+                timeout=60
+            )
+            try:
+                new_seconds = int(msg2.content)
+                await timer(interaction, new_seconds)  # 遞迴呼叫新的計時器
+            except ValueError:
+                await interaction.channel.send("❌ 無效的數字，計時器結束")
+        else:
+            await interaction.channel.send("⏹ 計時器結束")
+    except asyncio.TimeoutError:
+        await interaction.channel.send("⌛ 時間到，但你沒有回覆，計時器結束")
+
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已啟動: {bot.user}")
+    await tree.sync()  # 確保 Slash 指令同步到 Discord
     
     #重啟機器人
     
@@ -100,24 +144,28 @@ async def timer(interaction: discord.Interaction, seconds: int):
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-@bot.tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
-async def alarm(interaction: discord.Interaction, time: str):
-    try:
-        now = datetime.now()
-        alarm_time = datetime.strptime(time, "%H:%M").replace(year=now.year, month=now.month, day=now.day)
+from datetime import datetime, timedelta
+import asyncio
+import discord
+from discord.ext import commands
+from discord import app_commands
 
-        # 如果時間已經過了，設為明天
-        if alarm_time < now:
-            alarm_time += timedelta(days=1)
 
-        seconds_left = (alarm_time - now).total_seconds()
+@bot.tree.command(name="alarm", description="設定鬧鐘")
+@app_commands.describe(hour="小時(0-23)", minute="分鐘(0-59)")
+async def alarm(interaction: discord.Interaction, hour: int, minute: int):
+    now = datetime.now()
+    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    
+    if target < now:
+        target += timedelta(days=1)  # 如果時間已過，設定到明天
 
-        await interaction.response.send_message(f"⏰ 鬧鐘已設定，會在 {time} 提醒你！")
-        await asyncio.sleep(seconds_left)
-        await interaction.followup.send(f"🔔 {interaction.user.mention} 現在時間 {time}，鬧鐘響了！")
+    seconds = (target - now).total_seconds()
+    await interaction.response.send_message(f"⏰ 鬧鐘已設定，將在 {int(seconds)} 秒後提醒！")
 
-    except ValueError:
-        await interaction.response.send_message("❌ 時間格式錯誤，請用 HH:MM，例如 08:30。", ephemeral=True)
+    await asyncio.sleep(seconds)  # 非阻塞等待
+
+    await interaction.channel.send(f"🔔 {interaction.user.mention}，鬧鐘到囉！")
         
 
 
