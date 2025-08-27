@@ -90,7 +90,7 @@ async def hello(interaction: discord.Interaction):
 @app_commands.describe(message="Bot 要說的內容")
 async def say(interaction: discord.Interaction, message: str):
     await interaction.response.send_message("✅ 訊息已匿名發送！", ephemeral=True)
-    await interaction.channel.send(f"💬 {message}")
+    await interaction.channel.send(f" {message}")
 
 # -----------------------------
 # 好玩功能
