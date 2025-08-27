@@ -66,7 +66,7 @@ async def timer(interaction: discord.Interaction, seconds: int):
 # -----------------------------
 # /alarm 鬧鐘
 # -----------------------------
-@tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
+@bot.tree.command(name="alarm", description="設定一個鬧鐘 (格式: HH:MM 24小時制)")
 async def alarm(interaction: discord.Interaction, time: str):
     try:
         now = datetime.now()
