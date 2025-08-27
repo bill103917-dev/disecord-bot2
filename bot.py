@@ -84,15 +84,17 @@ async def ping_self():
 # -----------------------------
 # on_ready
 # -----------------------------
+GUILD_ID = GUILD_IDS = [1244944025748770897, 1227929105018912839]  # 你的伺服器 ID 清單
+guild = discord.Object(id=GUILD_ID)
+
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已啟動: {bot.user}")
     try:
-        synced = await tree.sync()
-        print(f"📌 已同步 {len(synced)} 個斜線指令")
+        synced = await tree.sync(guild=guild)  # 指定伺服器同步
+        print(f"📌 已同步 {len(synced)} 個斜線指令到指定伺服器")
     except Exception as e:
         print(f"同步指令失敗: {e}")
-    # 啟動自我 ping
     ping_self.start()
 
 # -----------------------------
