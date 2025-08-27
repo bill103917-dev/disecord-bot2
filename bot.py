@@ -231,10 +231,13 @@ class AdminCog(commands.Cog):
 # -----------------------------
 # GiveawayCog 完整版
 # -----------------------------
+# -----------------------------
+# Giveaway 抽獎系統
+# -----------------------------
 class GiveawayCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.active_giveaways = {}
+        self.active_giveaways = {}  # {message_id: {"end_time": datetime, "prize": str, "participants": set, "role": role_id}}
 
     @app_commands.command(name="giveaway", description="開始一個抽獎")
     @app_commands.describe(
@@ -252,105 +255,90 @@ class GiveawayCog(commands.Cog):
             year += 1
             end_time = datetime(year, 月份, 日期, 小時, 分鐘, tzinfo=tz)
 
-        await interaction.response.send_message(
-            f"✅ 抽獎開始！獎品：{獎品}，中獎人數：{人數}", ephemeral=True
-        )
-
         embed = discord.Embed(
-            title="🎉 抽獎活動 🎉",
-            description=(
-                f"獎品：**{獎品}**\n"
-                f"結束時間：{end_time.strftime('%m月%d日 %H:%M')}\n"
-                f"中獎人數：{人數}\n"
-                + (f"限定身分組：{限制角色.mention}\n" if 限制角色 else "") +
-                "輸入 `/join` 或點擊 🎉 參加抽獎"
-            ),
-            color=discord.Color.gold()
+            title="🎉 抽獎活動開始！",
+            description=f"獎品：**{獎品}**\n結束時間：{end_time.strftime('%Y-%m-%d %H:%M')}\n中獎人數：{人數}",
+            color=discord.Color.green()
         )
+        if 限制角色:
+            embed.add_field(name="參加限制", value=f"需要身分組：{限制角色.mention}", inline=False)
 
         msg = await interaction.channel.send(embed=embed)
-        await msg.add_reaction("🎉")
+        await interaction.response.send_message(f"✅ 抽獎「{獎品}」已開始！", ephemeral=True)
 
-        participants = set()
         self.active_giveaways[msg.id] = {
-            "prize": 獎品,
-            "participants": participants,
-            "message": msg,
             "end_time": end_time,
-            "winners_count": 人數,
+            "prize": 獎品,
+            "winners": 人數,
+            "participants": set(),
             "role": 限制角色.id if 限制角色 else None
         }
 
         async def giveaway_task():
-            while datetime.now(tz) < end_time:
-                await asyncio.sleep(60)
-            # 結束抽獎
-            active = self.active_giveaways.pop(msg.id, None)
-            if not active:
+            await asyncio.sleep((end_time - datetime.now(tz)).total_seconds())
+            data = self.active_giveaways.pop(msg.id, None)
+            if not data:
                 return
-            participants_list = list(active["participants"])
-            winners_count = active["winners_count"]
-            if len(participants_list) >= winners_count:
-                winners = random.sample(participants_list, winners_count)
-                winners_mentions = ", ".join([w.mention for w in winners])
-                embed = discord.Embed(
-                    title="🏆 抽獎結束！",
-                    description=f"🎉 恭喜 {winners_mentions} 獲得 **{active['prize']}**！",
-                    color=discord.Color.green()
-                )
-            elif participants_list:
-                winners_mentions = ", ".join([w.mention for w in participants_list])
-                embed = discord.Embed(
-                    title="🏆 抽獎結束！",
-                    description=f"🎉 人數不足，所有參加者都中獎！({winners_mentions})\n獎品：**{active['prize']}**",
-                    color=discord.Color.orange()
-                )
-            else:
-                embed = discord.Embed(
-                    title="🏆 抽獎結束！",
-                    description=f"😢 沒有人參加抽獎，獎品 **{active['prize']}** 流標。",
-                    color=discord.Color.red()
-                )
-            await msg.edit(embed=embed)
+
+            if not data["participants"]:
+                await interaction.channel.send(f"❌ 抽獎「{獎品}」結束，沒有人參加。")
+                return
+
+            winners = random.sample(list(data["participants"]), min(data["winners"], len(data["participants"])))
+            mentions = ", ".join(w.mention for w in winners)
+            await interaction.channel.send(f"🏆 抽獎「{獎品}」結束！恭喜 {mentions} 獲勝！")
 
         asyncio.create_task(giveaway_task())
 
-    # 用 reaction 加入抽獎
-    @commands.Cog.listener()
-    async def on_reaction_add(self, reaction, user):
-        if user.bot:
-            return
-        active = self.active_giveaways.get(reaction.message.id)
-        if not active:
-            return
-        if str(reaction.emoji) != "🎉":
-            return
-        # 檢查角色限制
-        if active["role"]:
-            member = reaction.message.guild.get_member(user.id)
-            role = reaction.message.guild.get_role(active["role"])
-            if role not in member.roles:
-                return
-        active["participants"].add(user)
+
 # -----------------------------
-# /join 指令
+# /join 指令（支援退出功能）
 # -----------------------------
-@tree.command(name="join", description="參加目前的抽獎")
+@tree.command(name="join", description="參加或退出目前的抽獎")
 async def join(interaction: discord.Interaction):
-    joined = False
-    for giveaway in bot.get_cog("GiveawayCog").active_giveaways.values():
-        # 檢查是否有角色限制
+    cog = bot.get_cog("GiveawayCog")
+    if not cog or not cog.active_giveaways:
+        await interaction.response.send_message("❌ 目前沒有進行中的抽獎。", ephemeral=True)
+        return
+
+    for giveaway in cog.active_giveaways.values():
+        # 檢查是否有限制角色
         if giveaway["role"]:
             member = interaction.guild.get_member(interaction.user.id)
             role = interaction.guild.get_role(giveaway["role"])
             if role not in member.roles:
                 continue
+
+        # 已經參加 → 問要不要退出
+        if interaction.user in giveaway["participants"]:
+            class ConfirmView(discord.ui.View):
+                def __init__(self):
+                    super().__init__(timeout=30)
+
+                @discord.ui.button(label="是，我要退出", style=discord.ButtonStyle.danger)
+                async def confirm(self, button: discord.ui.Button, i: discord.Interaction):
+                    giveaway["participants"].remove(interaction.user)
+                    await i.response.edit_message(content="✅ 你已退出抽獎。", view=None)
+
+                @discord.ui.button(label="否，繼續參加", style=discord.ButtonStyle.secondary)
+                async def cancel(self, button: discord.ui.Button, i: discord.Interaction):
+                    await i.response.edit_message(content="👌 你仍然在抽獎名單中。", view=None)
+
+            await interaction.response.send_message(
+                "⚠️ 你已經參加抽獎，要退出嗎？", 
+                view=ConfirmView(), 
+                ephemeral=True
+            )
+            return
+
+        # 還沒參加 → 加入
         giveaway["participants"].add(interaction.user)
-        joined = True
-    if joined:
         await interaction.response.send_message("✅ 你已成功加入抽獎！", ephemeral=True)
-    else:
-        await interaction.response.send_message("❌ 目前沒有可加入的抽獎，或你沒有符合參加資格。", ephemeral=True)
+        return
+
+    await interaction.response.send_message("❌ 沒有符合資格的抽獎。", ephemeral=True)
+
+
 
 # -----------------------------
 # on_ready
