@@ -33,11 +33,18 @@ async def run_web():
 
 # 啟動 Web Server
 async def main():
-    commands.Bot(...)
-    asyncio.create_task(run_web())  # 啟動 web server
+    intents = discord.Intents.default()
+    intents.message_content = True
+    intents.members = True
+
+    bot = commands.Bot(command_prefix="!", intents=intents)
+
+    # 啟動 web server
+    asyncio.create_task(run_web())
+
     async with bot:
         await setup(bot)           # 加載 Cog
-        await bot.start(TOKEN)     # 啟動 Bot
+        await bot.start(TOKEN)
 
 asyncio.run(main())
 
