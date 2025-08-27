@@ -234,11 +234,18 @@ class AdminCog(commands.Cog):
 # -----------------------------
 # Giveaway 抽獎系統
 # -----------------------------
+# -----------------------------
+# GiveawayCog 完整版
+# -----------------------------
 class GiveawayCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.active_giveaways = {}  # {message_id: {"end_time": datetime, "prize": str, "participants": set, "role": role_id}}
+        self.active_giveaways = {}   # message_id: {prize, participants, winners, role, end_time, host_id, message}
+        self.ended_giveaways = {}    # 結束抽獎存檔方便 reroll
 
+    # -----------------------------
+    # 開始抽獎
+    # -----------------------------
     @app_commands.command(name="giveaway", description="開始一個抽獎")
     @app_commands.describe(
         月份="月份", 日期="日期", 小時="小時", 分鐘="分鐘",
@@ -271,74 +278,178 @@ class GiveawayCog(commands.Cog):
             "prize": 獎品,
             "winners": 人數,
             "participants": set(),
-            "role": 限制角色.id if 限制角色 else None
+            "role": 限制角色.id if 限制角色 else None,
+            "host_id": interaction.user.id,
+            "message": msg
         }
 
         async def giveaway_task():
             await asyncio.sleep((end_time - datetime.now(tz)).total_seconds())
-            data = self.active_giveaways.pop(msg.id, None)
-            if not data:
-                return
-
-            if not data["participants"]:
-                await interaction.channel.send(f"❌ 抽獎「{獎品}」結束，沒有人參加。")
-                return
-
-            winners = random.sample(list(data["participants"]), min(data["winners"], len(data["participants"])))
-            mentions = ", ".join(w.mention for w in winners)
-            await interaction.channel.send(f"🏆 抽獎「{獎品}」結束！恭喜 {mentions} 獲勝！")
+            await self.end_giveaway_logic(interaction.channel, msg.id)
 
         asyncio.create_task(giveaway_task())
 
-
-# -----------------------------
-# /join 指令（支援退出功能）
-# -----------------------------
-@tree.command(name="join", description="參加或退出目前的抽獎")
-async def join(interaction: discord.Interaction):
-    cog = bot.get_cog("GiveawayCog")
-    if not cog or not cog.active_giveaways:
-        await interaction.response.send_message("❌ 目前沒有進行中的抽獎。", ephemeral=True)
-        return
-
-    for giveaway in cog.active_giveaways.values():
-        # 檢查是否有限制角色
-        if giveaway["role"]:
-            member = interaction.guild.get_member(interaction.user.id)
-            role = interaction.guild.get_role(giveaway["role"])
-            if role not in member.roles:
-                continue
-
-        # 已經參加 → 問要不要退出
-        if interaction.user in giveaway["participants"]:
-            class ConfirmView(discord.ui.View):
-                def __init__(self):
-                    super().__init__(timeout=30)
-
-                @discord.ui.button(label="是，我要退出", style=discord.ButtonStyle.danger)
-                async def confirm(self, button: discord.ui.Button, i: discord.Interaction):
-                    giveaway["participants"].remove(interaction.user)
-                    await i.response.edit_message(content="✅ 你已退出抽獎。", view=None)
-
-                @discord.ui.button(label="否，繼續參加", style=discord.ButtonStyle.secondary)
-                async def cancel(self, button: discord.ui.Button, i: discord.Interaction):
-                    await i.response.edit_message(content="👌 你仍然在抽獎名單中。", view=None)
-
-            await interaction.response.send_message(
-                "⚠️ 你已經參加抽獎，要退出嗎？", 
-                view=ConfirmView(), 
-                ephemeral=True
-            )
+    # -----------------------------
+    # /join 指令
+    # -----------------------------
+    @app_commands.command(name="join", description="參加或退出抽獎")
+    async def join(self, interaction: discord.Interaction):
+        if not self.active_giveaways:
+            await interaction.response.send_message("❌ 目前沒有進行中的抽獎。", ephemeral=True)
             return
 
-        # 還沒參加 → 加入
-        giveaway["participants"].add(interaction.user)
-        await interaction.response.send_message("✅ 你已成功加入抽獎！", ephemeral=True)
+        for giveaway in self.active_giveaways.values():
+            # 角色限制
+            if giveaway["role"]:
+                member = interaction.guild.get_member(interaction.user.id)
+                role = interaction.guild.get_role(giveaway["role"])
+                if role not in member.roles:
+                    continue
+
+            if interaction.user in giveaway["participants"]:
+                class ConfirmView(discord.ui.View):
+                    def __init__(self):
+                        super().__init__(timeout=30)
+
+                    @discord.ui.button(label="是，我要退出", style=discord.ButtonStyle.danger)
+                    async def confirm(self, button: discord.ui.Button, i: discord.Interaction):
+                        giveaway["participants"].remove(interaction.user)
+                        await i.response.edit_message(content="✅ 你已退出抽獎。", view=None)
+
+                    @discord.ui.button(label="否，繼續參加", style=discord.ButtonStyle.secondary)
+                    async def cancel(self, button: discord.ui.Button, i: discord.Interaction):
+                        await i.response.edit_message(content="👌 你仍然在抽獎名單中。", view=None)
+
+                await interaction.response.send_message(
+                    "⚠️ 你已經參加抽獎，要退出嗎？", view=ConfirmView(), ephemeral=True
+                )
+                return
+
+            giveaway["participants"].add(interaction.user)
+            await interaction.response.send_message("✅ 你已成功加入抽獎！", ephemeral=True)
+            return
+
+        await interaction.response.send_message("❌ 沒有符合資格的抽獎。", ephemeral=True)
+
+    # -----------------------------
+    # 提前結束抽獎
+    # -----------------------------
+    @app_commands.command(name="end_giveaway", description="提前結束抽獎（管理員或主辦人）")
+    async def end_giveaway(self, interaction: discord.Interaction, message_id: str):
+        try:
+            message_id = int(message_id)
+        except:
+            await interaction.response.send_message("❌ message_id 必須是數字。", ephemeral=True)
+            return
+
+        data = self.active_giveaways.get(message_id)
+        if not data:
+            await interaction.response.send_message("❌ 找不到該抽獎或已經結束。", ephemeral=True)
+            return
+
+        if not (interaction.user.guild_permissions.administrator or interaction.user.id == data["host_id"]):
+            await interaction.response.send_message("❌ 只有管理員或抽獎主辦人可以提前結束抽獎", ephemeral=True)
+            return
+
+        await self.end_giveaway_logic(interaction.channel, message_id)
+        await interaction.response.send_message("✅ 抽獎已提前結束！", ephemeral=True)
+
+    # -----------------------------
+    # 重新抽獎
+    # -----------------------------
+    @app_commands.command(name="reroll", description="重新抽獎（管理員或抽獎主辦人）")
+    async def reroll(self, interaction: discord.Interaction, message_id: str):
+        try:
+            message_id = int(message_id)
+        except:
+            await interaction.response.send_message("❌ message_id 必須是數字。", ephemeral=True)
+            return
+
+        data = self.ended_giveaways.get(message_id)
+        if not data:
+            await interaction.response.send_message("❌ 找不到該抽獎或尚未結束。", ephemeral=True)
+            return
+
+        if not (interaction.user.guild_permissions.administrator or interaction.user.id == data.get("host_id")):
+            await interaction.response.send_message("❌ 只有管理員或抽獎主辦人可以重新抽獎", ephemeral=True)
+            return
+
+        if not data["participants"]:
+            await interaction.response.send_message("❌ 沒有人參加，無法重新抽獎。", ephemeral=True)
+            return
+
+        winners = random.sample(list(data["participants"]), min(data["winners"], len(data["participants"])))
+        mentions = ", ".join(w.mention for w in winners)
+        await interaction.channel.send(f"🎲 抽獎「{data['prize']}」重新抽獎！恭喜 {mentions} 🎉")
+        await interaction.response.send_message("✅ 已重新抽獎！", ephemeral=True)
+
+    # -----------------------------
+    # 結束抽獎邏輯
+    # -----------------------------
+    async def end_giveaway_logic(self, channel, message_id):
+        data = self.active_giveaways.pop(message_id, None)
+        if not data:
+            return
+
+        self.ended_giveaways[message_id] = data
+        participants_list = list(data["participants"])
+        if not participants_list:
+            await channel.send(f"❌ 抽獎「{data['prize']}」結束，沒有人參加。")
+            return
+
+        winners = random.sample(participants_list, min(data["winners"], len(participants_list)))
+        mentions = ", ".join(w.mention for w in winners)
+        await channel.send(f"🏆 抽獎「{data['prize']}」結束！恭喜 {mentions} 🎉")
+
+    # -----------------------------
+    # reaction 參加
+    # -----------------------------
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        if user.bot:
+            return
+        data = self.active_giveaways.get(reaction.message.id)
+        if not data:
+            return
+        if str(reaction.emoji) != "🎉":
+            return
+        if data["role"]:
+            member = reaction.message.guild.get_member(user.id)
+            role = reaction.message.guild.get_role(data["role"])
+            if role not in member.roles:
+                return
+        data["participants"].add(user)
+# -----------------------------
+# 查看參加者
+# -----------------------------
+@app_commands.command(name="participants", description="查看抽獎參加者（管理員或主辦人）")
+async def participants(self, interaction: discord.Interaction, message_id: str):
+    try:
+        message_id = int(message_id)
+    except:
+        await interaction.response.send_message("❌ message_id 必須是數字。", ephemeral=True)
         return
 
-    await interaction.response.send_message("❌ 沒有符合資格的抽獎。", ephemeral=True)
+    data = self.active_giveaways.get(message_id) or self.ended_giveaways.get(message_id)
+    if not data:
+        await interaction.response.send_message("❌ 找不到該抽獎。", ephemeral=True)
+        return
 
+    if not (interaction.user.guild_permissions.administrator or interaction.user.id == data.get("host_id")):
+        await interaction.response.send_message("❌ 只有管理員或抽獎主辦人可以查看參加者名單", ephemeral=True)
+        return
 
+    if not data["participants"]:
+        await interaction.response.send_message("❌ 目前沒有人參加此抽獎。", ephemeral=True)
+        return
+
+    participants_list = "\n".join([user.mention for user in data["participants"]])
+    embed = discord.Embed(
+        title=f"🎉 抽獎「{data['prize']}」參加者列表",
+        description=participants_list,
+        color=discord.Color.blue()
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # -----------------------------
 # on_ready
