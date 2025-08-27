@@ -13,6 +13,36 @@ from aiohttp import web
 import aiohttp
 import pytz
 
+ #429自動重試登入#—————————————————
+async def start_bot_with_retry():
+    TOKEN = os.getenv("DISCORD_TOKEN")
+
+    intents = discord.Intents.default()
+    intents.message_content = True
+
+    bot = commands.Bot(command_prefix="!", intents=intents)
+
+    retry_delay = 10  # 初始等待秒數
+    max_retries = 5   # 最大重試次數
+    attempt = 0
+
+    while attempt < max_retries:
+        try:
+            async with bot:
+                await bot.start(TOKEN)
+        except discord.HTTPException as e:
+            if e.status == 429:  # 遇到限速
+                attempt += 1
+                print(f"⚠️ 遇到 429 Too Many Requests，等待 {retry_delay} 秒後重試 ({attempt}/{max_retries})")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # 指數回退
+            else:
+                raise
+        else:
+            break
+    else:
+        print("❌ 已達最大重試次數，無法登入 Discord Bot。")
+
 # -----------------------------
 # HTTP server 保活（Render 專用）
 # -----------------------------
@@ -393,3 +423,5 @@ async def giveaway(
 bot.add_cog(Giveaway(bot))
 
 TOKEN = os.getenv("DISCORD_TOKEN")
+if __name__ == "__main__":
+    asyncio.run(start_bot_with_retry())
