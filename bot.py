@@ -15,6 +15,8 @@ import random
 import os
 from datetime import datetime, timedelta
 
+bot = commands.Bot(...)
+
 from aiohttp import web
 
 async def handle(request):
