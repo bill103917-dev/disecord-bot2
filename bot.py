@@ -151,60 +151,70 @@ async def on_ready():
     await interaction.response.send_message("🔄 機器人正在重啟...")
     await bot.close()  # 安全關閉 Bot，部署平台會自動重啟
     
-# -----------------------------
-# /alarm 鬧鐘
-# -----------------------------
+  #鬧鐘——————————————————————————  
 import discord
 from discord.ext import commands
 from discord import app_commands
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import asyncio
-import pytz  # pip install pytz
 
+intents = discord.Intents.default()
+bot = commands.Bot(command_prefix="!", intents=intents)
+tree = bot.tree
 
-# 可用城市與對應時區
-CITY_TIMEZONES = {
-    "台北": "Asia/Taipei",
-    "東京": "Asia/Tokyo",
-    "首爾": "Asia/Seoul",
+# 國家對應主要時區
+COUNTRY_TIMEZONES = {
+    "台灣": "Asia/Taipei",
+    "日本": "Asia/Tokyo",
+    "韓國": "Asia/Seoul",
     "香港": "Asia/Hong_Kong",
-    "倫敦": "Europe/London",
-    "巴黎": "Europe/Paris",
-    "紐約": "America/New_York",
-    "洛杉磯": "America/Los_Angeles",
-    "雪梨": "Australia/Sydney"
+    "英國": "Europe/London",
+    "法國": "Europe/Paris",
+    "美國東岸": "America/New_York",
+    "美國西岸": "America/Los_Angeles",
+    "澳洲": "Australia/Sydney"
 }
 
-@bot.tree.command(name="alarm", description="設定鬧鐘")
-@app_commands.describe(city="城市名稱", hour="小時 (24H)", minute="分鐘")
-async def alarm(interaction: discord.Interaction, city: str, hour: int, minute: int):
-    if city not in CITY_TIMEZONES:
-        await interaction.response.send_message(f"❌ 不支援的城市，請選擇: {', '.join(CITY_TIMEZONES.keys())}", ephemeral=True)
+def format_duration(seconds: int) -> str:
+    """將秒數轉成 HH:MM:SS"""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{hours:02}:{minutes:02}:{secs:02}"
+
+@tree.command(name="alarm", description="設定鬧鐘")
+@app_commands.describe(country="國家名稱", hour="小時 (24H)", minute="分鐘")
+async def alarm(interaction: discord.Interaction, country: str, hour: int, minute: int):
+    if country not in COUNTRY_TIMEZONES:
+        await interaction.response.send_message(
+            f"❌ 不支援的國家，請選擇: {', '.join(COUNTRY_TIMEZONES.keys())}", ephemeral=True
+        )
         return
 
-    tz = pytz.timezone(CITY_TIMEZONES[city])
+    tz = ZoneInfo(COUNTRY_TIMEZONES[country])
     now = datetime.now(tz)
     target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-    # 如果設定時間已過，則自動設到隔天
     if target_time < now:
         target_time += timedelta(days=1)
 
-    delta_seconds = (target_time - now).total_seconds()
+    delta_seconds = int((target_time - now).total_seconds())
+    delta_formatted = format_duration(delta_seconds)
 
-    await interaction.response.send_message(f"⏰ 鬧鐘已設定在 {city} 時間 {target_time.strftime('%H:%M')}，還有 {int(delta_seconds)} 秒後提醒！")
+    await interaction.response.send_message(
+        f"⏰ 鬧鐘已設定在 {country} 時間 {target_time.strftime('%H:%M')}，還有 {delta_formatted} (時:分:秒) 後提醒！"
+    )
 
-    # 非阻塞等待
     await asyncio.sleep(delta_seconds)
-
-    # 到時間後提醒
-    await interaction.channel.send(f"🔔 {interaction.user.mention}，現在是 {city} {target_time.strftime('%H:%M')}，鬧鐘到囉！")
+    await interaction.channel.send(
+        f"🔔 {interaction.user.mention}，現在是 {country} {target_time.strftime('%H:%M')}，鬧鐘到囉！"
+    )
 
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已啟動: {bot.user}")
     await tree.sync()
-        
 
 
 # -----------------------------
