@@ -11,32 +11,18 @@ from zoneinfo import ZoneInfo
 from aiohttp import web
 import asyncio
 
-# ------------------------
-# HTTP 保活服務
-# ------------------------
-async def handle(request):
-    return web.Response(text="Bot is running!")
-
-app = web.Application()
-app.add_routes([web.get("/", handle)])
-
-# ------------------------
-# 保活定時任務
-# ------------------------
 async def keep_alive():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", 8080)
     await site.start()
     print("✅ HTTP server running on port 8080")
-    while True:
-        await asyncio.sleep(60)  # 保持程式運行
-
-# ------------------------
-# 啟動 asyncio
-# ------------------------
-if __name__ == "__main__":
-    asyncio.run(keep_alive())
 
 SPECIAL_USER_IDS = [1238436456041676853]  # 你要允許使用 /say 的特殊使用者 ID
 
@@ -426,12 +412,14 @@ async def on_ready():
     print(f"✅ 已登入：{bot.user} (ID: {bot.user.id})")
 
 async def main():
-    async with bot:
-        # 載入 Cog
-        await setup_cogs(bot)
+    # 啟動保活
+    await keep_alive()
 
-        # 啟動 Bot
-        await bot.start("YOUR_BOT_TOKEN")
+    # 載入 Cog
+    await setup_cogs(bot)
+
+    # 啟動 Bot
+    await bot.start("YOUR_BOT_TOKEN")
 
 if __name__ == "__main__":
     import asyncio
