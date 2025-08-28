@@ -277,7 +277,7 @@ class GiveawayCog(commands.Cog):
 
         embed = discord.Embed(
             title="🎉 抽獎活動開始！",
-            description=f"獎品：**{獎品}**\n結束時間：{end_time.strftime('%Y-%m-%d %H:%M')}\n中獎人數：{人數}"使用/join加入,
+            description=f"獎品：**{獎品}**\n結束時間：{end_time.strftime('%Y-%m-%d %H:%M')}\n中獎人數：{人數}",
             color=discord.Color.green()
         )
         if 限制角色:
