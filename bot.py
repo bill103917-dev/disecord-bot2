@@ -232,54 +232,53 @@ class UtilityCog(commands.Cog):
     
         
 #say-------------------
-
 from discord import app_commands
 import discord
 from discord.ext import commands
 
-# 設定特殊使用者 ID
+# 特殊使用者 ID
 SPECIAL_USERS = [1238436456041676853]  # 改成你的 Discord ID
 
 class UtilityCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(
-        name="say",
-        description="讓機器人在指定頻道發送訊息（可指定伺服器）"
-    )
+    @app_commands.command(name="say", description="讓機器人在指定頻道或私訊發送訊息")
     @app_commands.describe(
         message="要發送的訊息",
-        channel_name="要發送的頻道名稱（可選，留空則在當前頻道）",
-        guild_name="要發送的伺服器名稱（可選，留空則使用當前伺服器）"
+        channel_name="目標頻道名稱（可選）",
+        user="目標使用者（可選，私訊用）"
     )
-    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, guild_name: str = None):
-        # 確認使用者是管理員或特殊使用者
+    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, user: discord.Member = None):
+        # 權限判斷
         if not interaction.user.guild_permissions.administrator and interaction.user.id not in SPECIAL_USERS:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
 
-        # 判斷目標伺服器
-        if guild_name:
-            guild = discord.utils.get(self.bot.guilds, name=guild_name)
-            if not guild:
-                await interaction.response.send_message(f"❌ 找不到伺服器 `{guild_name}`", ephemeral=True)
-                return
-        else:
-            guild = interaction.guild
+        # 如果有指定使用者，就私訊
+        if user:
+            try:
+                await user.send(message)
+                await interaction.response.send_message(f"✅ 已成功私訊 {user.display_name}", ephemeral=True)
+            except discord.Forbidden:
+                await interaction.response.send_message(f"❌ 無法私訊 {user.display_name}", ephemeral=True)
+            return
 
-        # 判斷目標頻道
+        # 如果有指定頻道名稱，就發到那個頻道
         if channel_name:
-            channel = discord.utils.get(guild.channels, name=channel_name)
+            channel = discord.utils.get(interaction.guild.channels, name=channel_name)
             if not channel:
-                await interaction.response.send_message(f"❌ 在伺服器 `{guild.name}` 找不到頻道 `{channel_name}`", ephemeral=True)
+                await interaction.response.send_message(f"❌ 找不到頻道 `{channel_name}`", ephemeral=True)
                 return
-        else:
-            channel = interaction.channel
+            await channel.send(message)
+            await interaction.response.send_message(f"✅ 已在頻道 {channel.mention} 發送訊息", ephemeral=True)
+            return
 
-        # 發送訊息
-        await channel.send(message)
-        await interaction.response.send_message(f"✅ 已在 {guild.name} 的 {channel.mention} 發送訊息", ephemeral=True)
+        # 沒指定，預設發在當前頻道
+        await interaction.channel.send(message)
+        await interaction.response.send_message(f"✅ 已在 {interaction.channel.mention} 發送訊息", ephemeral=True)
+
+
 # -----------------------------
 # AdminCog
 # -----------------------------
