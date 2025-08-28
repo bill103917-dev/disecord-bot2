@@ -282,7 +282,7 @@ class AdminCog(commands.Cog):
         await self.bot.close()
         
 #抽獎——————————————————————————
- class GiveawayCog(commands.Cog):
+class GiveawayCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_giveaways = {}   # message_id: {prize, participants, winners, role, host_id, message}
