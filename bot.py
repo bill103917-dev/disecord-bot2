@@ -141,7 +141,7 @@ class UtilityCog(commands.Cog):
 
     class UtilityCog(commands.Cog):
         def __init__(self, bot):
-        self.bot = bot
+            self.bot = bot
 
     @app_commands.command(name="timer", description="設定計時器")
     async def timer(self, interaction: discord.Interaction, timestr: str):
