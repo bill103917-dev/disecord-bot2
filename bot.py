@@ -399,7 +399,7 @@ async def on_ready():
 
 async def main():
     async with bot:
-        await bot.load_extension("bot")  # 假設這份程式檔叫 bot.py
+        await setup_cogs(bot)  
         await bot.start("YOUR_BOT_TOKEN")
 
 if __name__ == "__main__":
