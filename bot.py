@@ -397,7 +397,10 @@ async def on_ready():
 
 async def main():
     async with bot:
-        await setup_cogs(bot)  
+        # 載入 Cog
+        await setup_cogs(bot)
+
+        # 啟動 Bot
         await bot.start("YOUR_BOT_TOKEN")
 
 if __name__ == "__main__":
