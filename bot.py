@@ -140,7 +140,7 @@ class UtilityCog(commands.Cog):
         await interaction.response.send_message(f"Hello {interaction.user.mention}!")
 
     class UtilityCog(commands.Cog):
-    def __init__(self, bot):
+        def __init__(self, bot):
         self.bot = bot
 
     @app_commands.command(name="timer", description="設定計時器")
