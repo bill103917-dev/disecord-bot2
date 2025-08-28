@@ -8,6 +8,36 @@ from zoneinfo import ZoneInfo
 # 你原本的輔助函數 (例如 parse_time, format_duration, COUNTRY_TIMEZONES) 請保留
 # 這裡我先假設它們已經定義在前面了
 
+from aiohttp import web
+import asyncio
+
+# ------------------------
+# HTTP 保活服務
+# ------------------------
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+app = web.Application()
+app.add_routes([web.get("/", handle)])
+
+# ------------------------
+# 保活定時任務
+# ------------------------
+async def keep_alive():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    print("✅ HTTP server running on port 8080")
+    while True:
+        await asyncio.sleep(60)  # 保持程式運行
+
+# ------------------------
+# 啟動 asyncio
+# ------------------------
+if __name__ == "__main__":
+    asyncio.run(keep_alive())
+
 SPECIAL_USER_IDS = [1238436456041676853]  # 你要允許使用 /say 的特殊使用者 ID
 
 # =========================
