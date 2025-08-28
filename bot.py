@@ -551,7 +551,8 @@ async def setup(bot):
 # -----------------------------
 @bot.event
 async def on_ready():
-    print(f"✅ Bot 已啟動: {bot.user}")
+    await bot.tree.sync()  # 同步全域指令
+    print(f"✅ 已登入 {bot.user}，Slash 指令已同步")
     ping_self.start()
     try:
         synced = await tree.sync()
