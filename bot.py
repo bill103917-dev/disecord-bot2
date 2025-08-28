@@ -102,22 +102,35 @@ class FunCog(commands.Cog):
         else:
             await interaction.response.send_message(f"{a} ÷ {b} = {a/b}")
 
+    from discord import app_commands
+
+class FunCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
     @app_commands.command(name="rps", description="剪刀石頭布")
+    @app_commands.choices(choice=[
+        app_commands.Choice(name="剪刀", value="剪刀"),
+        app_commands.Choice(name="石頭", value="石頭"),
+        app_commands.Choice(name="布", value="布")
+    ])
     async def rps(self, interaction: discord.Interaction, choice: str):
-        options = ["rock", "paper", "scissors"]
-        if choice not in options:
-            await interaction.response.send_message("❌ 請輸入 rock, paper 或 scissors")
-            return
-        bot_choice = random.choice(options)
+        import random
+
+        bot_choice = random.choice(["剪刀", "石頭", "布"])
+
         if choice == bot_choice:
             result = "平手！"
-        elif (choice == "rock" and bot_choice == "scissors") or \
-             (choice == "scissors" and bot_choice == "paper") or \
-             (choice == "paper" and bot_choice == "rock"):
+        elif (choice == "剪刀" and bot_choice == "布") or \
+             (choice == "布" and bot_choice == "石頭") or \
+             (choice == "石頭" and bot_choice == "剪刀"):
             result = "你贏了！"
         else:
             result = "你輸了！"
-        await interaction.response.send_message(f"你選擇：{choice}\nBot 選擇：{bot_choice}\n➡ {result}")
+
+        await interaction.response.send_message(
+            f"你選擇：{choice}\nBot 選擇：{bot_choice}\n➡ {result}"
+        )
 
     @app_commands.command(name="dice", description="擲骰子")
     async def dice(self, interaction: discord.Interaction):
