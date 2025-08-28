@@ -534,7 +534,6 @@ async def setup_cogs(bot):
     await bot.add_cog(UtilityCog(bot))
     await bot.add_cog(AdminCog(bot))
     await bot.add_cog(GiveawayCog(bot))
-
 # -----------------------------
 # 啟動
 # -----------------------------
