@@ -203,6 +203,32 @@ class UtilityCog(commands.Cog):
             )
 
         asyncio.create_task(alarm_task())
+        
+        from discord import app_commands
+from discord.ext import commands
+import discord
+
+class UtilityCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="help", description="顯示所有指令說明")
+    async def help(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="🤖 機器人指令列表",
+            color=discord.Color.blue()
+        )
+
+        for cog_name, cog in self.bot.cogs.items():
+            commands_list = []
+            for cmd in cog.get_app_commands():
+                desc = cmd.description or "沒有說明"
+                commands_list.append(f"/{cmd.name} — {desc}")
+            if commands_list:
+                embed.add_field(name=cog_name, value="\n".join(commands_list), inline=False)
+
+        embed.set_footer(text="使用斜線指令 / 開頭操作機器人")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     
         
 #say-------------------
