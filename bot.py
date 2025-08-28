@@ -411,17 +411,19 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ 已登入：{bot.user} (ID: {bot.user.id})")
 
-async def main():
-    # 啟動保活
-    await keep_alive()
 
-    # 載入 Cog
-    await setup_cogs(bot)
-
-    # 啟動 Bot
 import os
-TOKEN = os.getenv("DISCORD_TOKEN")
-await bot.start(TOKEN)
+import asyncio
+
+async def main():
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    async with bot:
+        await setup_cogs(bot)   # 載入 Cog
+        await bot.start(TOKEN)  # 啟動 Bot
+        # 啟動保活
+        await keep_alive()
+if __name__ == "__main__":
+    asyncio.run(main())
 
 if __name__ == "__main__":
     import asyncio
