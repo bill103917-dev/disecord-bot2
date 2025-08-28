@@ -189,17 +189,21 @@ class UtilityCog(commands.Cog):
     # ...你現有的指令...
 
     @app_commands.command(name="say", description="讓機器人在指定頻道發送訊息")
-    @app_commands.describe(channel_id="頻道 ID", message="要發送的訊息")
-    async def say(self, interaction: discord.Interaction, channel_id: int, message: str):
+    @app_commands.describe(channel_name="要發送的頻道名稱（可選，留空則在當前頻道）", message="要發送的訊息")
+    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None):
         # 確認使用者是管理員
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
 
-        channel = self.bot.get_channel(channel_id)
-        if not channel:
-            await interaction.response.send_message("❌ 找不到該頻道，請確認頻道 ID 正確", ephemeral=True)
-            return
+        # 如果沒輸入頻道名稱就使用當前頻道
+        if channel_name:
+            channel = discord.utils.get(interaction.guild.channels, name=channel_name)
+            if not channel:
+                await interaction.response.send_message(f"❌ 找不到頻道 `{channel_name}`", ephemeral=True)
+                return
+        else:
+            channel = interaction.channel
 
         await channel.send(message)
         await interaction.response.send_message(f"✅ 已在 {channel.mention} 發送訊息", ephemeral=True)
