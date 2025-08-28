@@ -465,6 +465,7 @@ async def start_bot_with_retry():
         try:
             async with bot:
                 asyncio.create_task(run_web())
+                await setup_cogs(bot)  # ← 這裡加入 await
                 await bot.start(TOKEN)
         except discord.HTTPException as e:
             if e.status == 429:
@@ -482,10 +483,11 @@ async def start_bot_with_retry():
 # -----------------------------
 # Cog 加載
 # -----------------------------
-bot.add_cog(FunCog(bot))
-bot.add_cog(UtilityCog(bot))
-bot.add_cog(AdminCog(bot))
-bot.add_cog(GiveawayCog(bot))
+async def setup_cogs(bot):
+    await bot.add_cog(FunCog(bot))
+    await bot.add_cog(UtilityCog(bot))
+    await bot.add_cog(AdminCog(bot))
+    await bot.add_cog(GiveawayCog(bot))
 
 # -----------------------------
 # 啟動
