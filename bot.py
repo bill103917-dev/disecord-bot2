@@ -419,7 +419,9 @@ async def main():
     await setup_cogs(bot)
 
     # 啟動 Bot
-    await bot.start("YOUR_BOT_TOKEN")
+import os
+TOKEN = os.getenv("DISCORD_TOKEN")
+await bot.start(TOKEN)
 
 if __name__ == "__main__":
     import asyncio
