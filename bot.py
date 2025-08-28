@@ -162,8 +162,8 @@ class UtilityCog(commands.Cog):
     @app_commands.command(name="alarm", description="設定鬧鐘")
     async def alarm(self, interaction: discord.Interaction, country: str, hour: int, minute: int):
         if country not in COUNTRY_TIMEZONES:
-        await interaction.response.send_message(
-            f"❌ 不支援的國家，請選擇: {', '.join(COUNTRY_TIMEZONES.keys())}", ephemeral=True
+            await interaction.response.send_message(
+                f"❌ 不支援的國家，請選擇: {', '.join(COUNTRY_TIMEZONES.keys())}", ephemeral=True
         )
         return
 
