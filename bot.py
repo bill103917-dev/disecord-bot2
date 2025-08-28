@@ -176,6 +176,33 @@ class UtilityCog(commands.Cog):
                 f"🔔 {interaction.user.mention}，現在是 {country} {target_time.strftime('%H:%M')}，鬧鐘到囉！"
             )
         asyncio.create_task(alarm_task())
+        
+#say-------------------
+from discord import app_commands
+import discord
+from discord.ext import commands
+
+class UtilityCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    # ...你現有的指令...
+
+    @app_commands.command(name="say", description="讓機器人在指定頻道發送訊息")
+    @app_commands.describe(channel_id="頻道 ID", message="要發送的訊息")
+    async def say(self, interaction: discord.Interaction, channel_id: int, message: str):
+        # 確認使用者是管理員
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
+            return
+
+        channel = self.bot.get_channel(channel_id)
+        if not channel:
+            await interaction.response.send_message("❌ 找不到該頻道，請確認頻道 ID 正確", ephemeral=True)
+            return
+
+        await channel.send(message)
+        await interaction.response.send_message(f"✅ 已在 {channel.mention} 發送訊息", ephemeral=True)
 
 # -----------------------------
 # AdminCog
