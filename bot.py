@@ -185,23 +185,21 @@ class FunCog(commands.Cog):
 # -----------------------------
 # Cog 載入函數
 # -----------------------------
+# -----------------------------
+# Cog 載入函數
+# -----------------------------
 async def setup_cogs(bot: commands.Bot):
     # 載入工具指令
-    from your_cog_files.utility_cog import UtilityCog
     await bot.add_cog(UtilityCog(bot))
 
     # 載入娛樂指令
-    from your_cog_files.fun_cog import FunCog
     await bot.add_cog(FunCog(bot))
 
     # 載入管理員指令
-    from your_cog_files.admin_cog import AdminCog
     await bot.add_cog(AdminCog(bot))
 
     # 載入抽獎指令
-    from your_cog_files.giveaway_cog import GiveawayCog
     await bot.add_cog(GiveawayCog(bot))
-
 # =========================
 # 🔧 輔助函數
 # =========================
