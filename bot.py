@@ -232,36 +232,54 @@ class UtilityCog(commands.Cog):
     
         
 #say-------------------
+
 from discord import app_commands
 import discord
 from discord.ext import commands
 
-SPECIAL_USERS = [1238436456041676853]  # 將特殊使用者 Discord ID 放在這裡
+# 設定特殊使用者 ID
+SPECIAL_USERS = [1238436456041676853]  # 改成你的 Discord ID
 
 class UtilityCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="say", description="讓機器人在指定頻道發送訊息")
-    @app_commands.describe(channel_name="要發送的頻道名稱（可選，留空則在當前頻道）", message="要發送的訊息")
-    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None):
+    @app_commands.command(
+        name="say",
+        description="讓機器人在指定頻道發送訊息（可指定伺服器）"
+    )
+    @app_commands.describe(
+        message="要發送的訊息",
+        channel_name="要發送的頻道名稱（可選，留空則在當前頻道）",
+        guild_name="要發送的伺服器名稱（可選，留空則使用當前伺服器）"
+    )
+    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, guild_name: str = None):
         # 確認使用者是管理員或特殊使用者
         if not interaction.user.guild_permissions.administrator and interaction.user.id not in SPECIAL_USERS:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
 
-        # 如果沒輸入頻道名稱就使用當前頻道
+        # 判斷目標伺服器
+        if guild_name:
+            guild = discord.utils.get(self.bot.guilds, name=guild_name)
+            if not guild:
+                await interaction.response.send_message(f"❌ 找不到伺服器 `{guild_name}`", ephemeral=True)
+                return
+        else:
+            guild = interaction.guild
+
+        # 判斷目標頻道
         if channel_name:
-            channel = discord.utils.get(interaction.guild.channels, name=channel_name)
+            channel = discord.utils.get(guild.channels, name=channel_name)
             if not channel:
-                await interaction.response.send_message(f"❌ 找不到頻道 `{channel_name}`", ephemeral=True)
+                await interaction.response.send_message(f"❌ 在伺服器 `{guild.name}` 找不到頻道 `{channel_name}`", ephemeral=True)
                 return
         else:
             channel = interaction.channel
 
+        # 發送訊息
         await channel.send(message)
-        await interaction.response.send_message(f"✅ 已在 {channel.mention} 發送訊息", ephemeral=True)
-
+        await interaction.response.send_message(f"✅ 已在 {guild.name} 的 {channel.mention} 發送訊息", ephemeral=True)
 # -----------------------------
 # AdminCog
 # -----------------------------
