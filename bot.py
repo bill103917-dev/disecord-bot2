@@ -140,8 +140,8 @@ class UtilityCog(commands.Cog):
         await interaction.response.send_message(f"Hello {interaction.user.mention}!")
 
     class UtilityCog(commands.Cog):
-        def __init__(self, bot):
-            self.bot = bot
+    def __init__(self, bot):
+        self.bot = bot
 
     @app_commands.command(name="timer", description="設定計時器")
     async def timer(self, interaction: discord.Interaction, timestr: str):
@@ -190,6 +190,7 @@ class UtilityCog(commands.Cog):
             )
 
         asyncio.create_task(alarm_task())
+    
         
 #say-------------------
 from discord import app_commands
