@@ -159,35 +159,37 @@ class UtilityCog(commands.Cog):
 
         asyncio.create_task(timer_task())
 
+    
+
     @app_commands.command(name="alarm", description="設定鬧鐘")
     async def alarm(self, interaction: discord.Interaction, country: str, hour: int, minute: int):
         if country not in COUNTRY_TIMEZONES:
             await interaction.response.send_message(
                 f"❌ 不支援的國家，請選擇: {', '.join(COUNTRY_TIMEZONES.keys())}", ephemeral=True
-        )
-        return
+            )
+            return
 
-    tz = ZoneInfo(COUNTRY_TIMEZONES[country])
-    now = datetime.now(tz)
-    target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if target_time < now:
-        target_time += timedelta(days=1)
+        tz = ZoneInfo(COUNTRY_TIMEZONES[country])
+        now = datetime.now(tz)
+        target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if target_time < now:
+            target_time += timedelta(days=1)
 
-    delta_seconds = int((target_time - now).total_seconds())
-    delta_formatted = format_duration(delta_seconds)
+        delta_seconds = int((target_time - now).total_seconds())
+        delta_formatted = format_duration(delta_seconds)
 
-    await interaction.response.send_message(
-        f"⏰ 鬧鐘已設定在 {country} 時間 {target_time.strftime('%H:%M')}，還有 {delta_formatted} 後提醒你！",
-        ephemeral=True
-    )
-
-    async def alarm_task():
-        await asyncio.sleep(delta_seconds)
-        await interaction.channel.send(
-            f"🔔 {interaction.user.mention}，現在是 {country} 時間 {target_time.strftime('%H:%M')}，鬧鐘響了！"
+        await interaction.response.send_message(
+            f"⏰ 鬧鐘已設定在 {country} 時間 {target_time.strftime('%H:%M')}，還有 {delta_formatted} 後提醒！",
+            ephemeral=True
         )
 
-    asyncio.create_task(alarm_task())
+        async def alarm_task():
+            await asyncio.sleep(delta_seconds)
+            await interaction.channel.send(
+                f"🔔 {interaction.user.mention}，現在是 {country} {target_time.strftime('%H:%M')}，鬧鐘到囉！"
+            )
+
+        asyncio.create_task(alarm_task())
         
 #say-------------------
 from discord import app_commands
