@@ -247,21 +247,24 @@ class UtilityCog(commands.Cog):
     @app_commands.describe(
         message="要發送的訊息",
         channel_name="目標頻道名稱（可選）",
-        user="目標使用者（可選，私訊用）"
+        user_id="目標使用者 ID（可選，私訊用）"
     )
-    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, user: discord.Member = None):
-        # 權限判斷
+    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, user_id: str = None):
+        # 權限判斷（管理員 or 特殊使用者）
         if not interaction.user.guild_permissions.administrator and interaction.user.id not in SPECIAL_USERS:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
 
-        # 如果有指定使用者，就私訊
-        if user:
+        # 如果有指定使用者 ID，就發私訊
+        if user_id:
             try:
+                user = await self.bot.fetch_user(int(user_id))
                 await user.send(message)
-                await interaction.response.send_message(f"✅ 已成功私訊 {user.display_name}", ephemeral=True)
+                await interaction.response.send_message(f"✅ 已成功私訊 {user.name}", ephemeral=True)
+            except discord.NotFound:
+                await interaction.response.send_message("❌ 找不到該使用者 ID", ephemeral=True)
             except discord.Forbidden:
-                await interaction.response.send_message(f"❌ 無法私訊 {user.display_name}", ephemeral=True)
+                await interaction.response.send_message("❌ 無法私訊該使用者（可能關閉了私訊）", ephemeral=True)
             return
 
         # 如果有指定頻道名稱，就發到那個頻道
@@ -274,7 +277,7 @@ class UtilityCog(commands.Cog):
             await interaction.response.send_message(f"✅ 已在頻道 {channel.mention} 發送訊息", ephemeral=True)
             return
 
-        # 沒指定，預設發在當前頻道
+        # 預設：發到當前頻道
         await interaction.channel.send(message)
         await interaction.response.send_message(f"✅ 已在 {interaction.channel.mention} 發送訊息", ephemeral=True)
 
