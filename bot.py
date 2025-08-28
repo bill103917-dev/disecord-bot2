@@ -236,17 +236,17 @@ from discord import app_commands
 import discord
 from discord.ext import commands
 
+SPECIAL_USERS = [1238436456041676853]  # 將特殊使用者 Discord ID 放在這裡
+
 class UtilityCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ...你現有的指令...
-
     @app_commands.command(name="say", description="讓機器人在指定頻道發送訊息")
     @app_commands.describe(channel_name="要發送的頻道名稱（可選，留空則在當前頻道）", message="要發送的訊息")
     async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None):
-        # 確認使用者是管理員
-        if not interaction.user.guild_permissions.administrator:
+        # 確認使用者是管理員或特殊使用者
+        if not interaction.user.guild_permissions.administrator and interaction.user.id not in SPECIAL_USERS:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
 
