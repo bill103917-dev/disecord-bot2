@@ -57,7 +57,6 @@ from flask import Flask
 import os
 import threading
 
-PORT = int(os.environ.get("PORT", 8080))
 
 # 1️⃣ 定義 Flask 應用
 app = Flask(__name__)
@@ -72,7 +71,7 @@ def run_web():
 
 threading.Thread(target=run_web, daemon=True).start()
 
-PORT = int(os.environ.get("PORT", 8080))
+PORT = 8080
 app.run(host='0.0.0.0', port=PORT)
 
 from aiohttp import web
