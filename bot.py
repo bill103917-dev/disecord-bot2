@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
 from flask import Flask
+import threading
 # =========================
 # 🔧 輔助函數
 # =========================
