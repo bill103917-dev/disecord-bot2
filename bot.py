@@ -74,11 +74,9 @@ threading.Thread(target=run_web, daemon=True).start()
 
 
 import os
-
 PORT = int(os.environ.get("PORT", 8080))
 
-def run_web():
-    app.run(host="0.0.0.0", port=PORT)
+
 
 from aiohttp import web
 import asyncio
