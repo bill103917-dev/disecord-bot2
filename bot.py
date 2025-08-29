@@ -55,19 +55,7 @@ SPECIAL_USER_IDS = [OWNER_ID]
 import os
 print(os.getenv("DISCORD_TOKEN"))
 
-# =========================
-# 🚀 保活伺服器
-# =========================
-async def keep_alive():
-    async def handle(request):
-        return web.Response(text="Bot is running!")
-    app = web.Application()
-    app.add_routes([web.get("/", handle)])
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
-    print("✅ HTTP server running on port 8080")
+
 
 # =========================
 # 📌 UtilityCog
@@ -219,6 +207,22 @@ async def setup_cogs(bot):
         await bot.add_cog(FunCog(bot))
     if not bot.get_cog("AdminCog"):
         await bot.add_cog(AdminCog(bot))
+        
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return 'Bot is running.'
+
+
+def run_web():
+    app.run(host='0.0.0.0', port=PORT)
+
+# ===== Entrypoint =====
+if __name__ == '__main__':
+    # 開一條 Flask 執行緒，讓 Render 偵測埠口
+    threading.Thread(target=run_web, daemon=True).start()
+
 
 # =========================
 # 🚀 啟動 Bot
