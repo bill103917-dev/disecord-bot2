@@ -3,19 +3,34 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import asyncio
-from aiohttp import web
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
 from flask import Flask
 import threading
+
 # =========================
-# 🔧 輔助函數
+# ⚙️ 全域設定
+# =========================
+OWNER_ID = 1238436456041676853
+SPECIAL_USER_IDS = [OWNER_ID]
+
+COUNTRY_TIMEZONES = {
+    "台灣": "Asia/Taipei",
+    "日本": "Asia/Tokyo",
+    "美國東岸": "America/New_York",
+    "美國西岸": "America/Los_Angeles",
+    "英國": "Europe/London",
+    "德國": "Europe/Berlin",
+    "澳洲": "Australia/Sydney"
+}
+
+# =========================
+# 🕒 工具函數
 # =========================
 def parse_time(timestr: str) -> int:
     units = {"s": 1, "m": 60, "h": 3600}
-    num = ""
-    total = 0
+    num, total = "", 0
     for char in timestr:
         if char.isdigit():
             num += char
@@ -40,60 +55,21 @@ def format_duration(seconds: int) -> str:
     if s: parts.append(f"{s} 秒")
     return " ".join(parts) if parts else "0 秒"
 
-COUNTRY_TIMEZONES = {
-    "台灣": "Asia/Taipei",
-    "日本": "Asia/Tokyo",
-    "美國東岸": "America/New_York",
-    "美國西岸": "America/Los_Angeles",
-    "英國": "Europe/London",
-    "德國": "Europe/Berlin",
-    "澳洲": "Australia/Sydney"
-}
-
-OWNER_ID = 1238436456041676853
-SPECIAL_USER_IDS = [OWNER_ID]
-
-from flask import Flask
-import os
-import threading
-
-
-# 1️⃣ 定義 Flask 應用
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot is running!"
-
-# 2️⃣ 用 thread 讓 Flask 跑在背景
-def run_web():
-    app.run(host="0.0.0.0", port=PORT)
-
-threading.Thread(target=run_web, daemon=True).start()
-
-
-
-import os
+# =========================
+# 🌐 Flask 保活
+# =========================
 PORT = int(os.environ.get("PORT", 8080))
+flask_app = Flask(__name__)
 
+@flask_app.route("/")
+def home():
+    return "✅ Bot is running!"
 
+def run_web():
+    flask_app.run(host="0.0.0.0", port=PORT)
 
-from aiohttp import web
-import asyncio
-
-async def keep_alive():
-    async def handle(request):
-        return web.Response(text="Bot is running!")
-
-    app = web.Application()
-    app.add_routes([web.get("/", handle)])
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
-    await site.start()
-    print("✅ HTTP server running on port 8080")
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+def keep_alive():
+    threading.Thread(target=run_web, daemon=True).start()
 
 # =========================
 # 📌 UtilityCog
@@ -110,7 +86,7 @@ class UtilityCog(commands.Cog):
     async def hello(self, interaction: discord.Interaction):
         await interaction.response.send_message(f"👋 哈囉 {interaction.user.mention}!", ephemeral=True)
 
-    @app_commands.command(name="timer", description="設定計時器")
+    @app_commands.command(name="timer", description="設定計時器 (例: 10s, 5m, 2h)")
     async def timer(self, interaction: discord.Interaction, timestr: str):
         try:
             total_seconds = parse_time(timestr)
@@ -170,7 +146,7 @@ class UtilityCog(commands.Cog):
 class FunCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.rps_choices = {"剪刀":"✂️", "石頭":"🪨", "布":"📄"}
+        self.rps_choices = {"剪刀": "✂️", "石頭": "🪨", "布": "📄"}
 
     @app_commands.command(name="rps", description="剪刀石頭布")
     async def rps(self, interaction: discord.Interaction, choice: str):
@@ -180,33 +156,26 @@ class FunCog(commands.Cog):
         bot_choice = random.choice(list(self.rps_choices.keys()))
         if choice == bot_choice:
             result = "平手 🤝"
-        elif (choice=="剪刀" and bot_choice=="布") or (choice=="石頭" and bot_choice=="剪刀") or (choice=="布" and bot_choice=="石頭"):
+        elif (choice == "剪刀" and bot_choice == "布") or (choice == "石頭" and bot_choice == "剪刀") or (choice == "布" and bot_choice == "石頭"):
             result = "你贏了 🎉"
         else:
             result = "你輸了 😢"
         await interaction.response.send_message(f"你出 {self.rps_choices[choice]} ({choice})\n我出 {self.rps_choices[bot_choice]} ({bot_choice})\n結果：{result}")
 
-    @app_commands.command(name="draw", description="隨機抽籤")
+    @app_commands.command(name="draw", description="隨機抽籤 (用空格分開選項)")
     async def draw(self, interaction: discord.Interaction, options: str):
-        items = [o.strip() for o in options.replace(",", " ").split() if o.strip()]
+        items = [o.strip() for o in options.split() if o.strip()]
         if len(items) < 2:
             await interaction.response.send_message("❌ 請至少輸入兩個選項", ephemeral=True)
             return
         winner = random.choice(items)
         await interaction.response.send_message(f"🎉 抽籤結果：**{winner}**")
-        
-        
-        
-#管理——————
-    from discord.ext import commands
-from discord import app_commands
-import discord
 
-  # 改成你的 Discord ID
-
+# =========================
+# 🛠 AdminCog
+# =========================
 class AdminCog(commands.Cog):
     """管理員專用指令"""
-
     def __init__(self, bot):
         self.bot = bot
 
@@ -226,39 +195,13 @@ class AdminCog(commands.Cog):
         await member.ban(reason=reason)
         await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
 
-    @app_commands.command(name="restart", description="重啟機器人（僅指定使用者可用）")
+    @app_commands.command(name="restart", description="重啟機器人（僅 OWNER 可用）")
     async def restart(self, interaction: discord.Interaction):
         if interaction.user.id != OWNER_ID:
             await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
             return
         await interaction.response.send_message("🔄 機器人正在重啟...", ephemeral=True)
         await self.bot.close()
-
-# =========================
-# 🔧 Cog 載入函數
-# =========================
-async def setup_cogs(bot):
-    # 先檢查 Cog 是否已存在
-    if not bot.get_cog("UtilityCog"):
-        await bot.add_cog(UtilityCog(bot))
-    if not bot.get_cog("FunCog"):
-        await bot.add_cog(FunCog(bot))
-    if not bot.get_cog("AdminCog"):
-        await bot.add_cog(AdminCog(bot))
-        
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return 'Bot is running.'
-
-
-def run_web():
-    app.run(host='0.0.0.0', port=PORT)
-
-# ===== Entrypoint =====
-
-
 
 # =========================
 # 🚀 啟動 Bot
@@ -272,16 +215,15 @@ async def on_ready():
     await bot.tree.sync()
     print(f"✅ 已登入：{bot.user} (ID: {bot.user.id})")
 
-async def main():
-    await setup_cogs(bot)
-    await keep_alive()
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    
+async def setup_cogs():
+    await bot.add_cog(UtilityCog(bot))
+    await bot.add_cog(FunCog(bot))
+    await bot.add_cog(AdminCog(bot))
 
 async def main():
-    await setup_cogs(bot)   # 載入你的 cogs
-    await keep_alive()      # aiohttp 保活
-      # 啟動 Bot
+    keep_alive()
+    await setup_cogs()
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    await bot.start(TOKEN)
 
 asyncio.run(main())
-asyncio.run(bot.start(TOKEN))
