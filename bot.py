@@ -170,11 +170,13 @@ class FunCog(commands.Cog):
 # 🔧 Cog 載入函數
 # =========================
 async def setup_cogs(bot):
-    await bot.add_cog(UtilityCog(bot))
-    await bot.add_cog(FunCog(bot))
-    await bot.add_cog(UtilityCog(bot))
-    await bot.add_cog(FunCog(bot))
-    await bot.add_cog(AdminCog(bot))  # 載入管理員指令
+    # 先檢查 Cog 是否已存在
+    if not bot.get_cog("UtilityCog"):
+        await bot.add_cog(UtilityCog(bot))
+    if not bot.get_cog("FunCog"):
+        await bot.add_cog(FunCog(bot))
+    if not bot.get_cog("AdminCog"):
+        await bot.add_cog(AdminCog(bot))
 
 # =========================
 # 🚀 啟動 Bot
@@ -192,6 +194,6 @@ async def main():
     await setup_cogs(bot)
     await keep_alive()
     TOKEN = os.getenv("DISCORD_TOKEN")
-    await bot.start(TOKEN)
+    
 
 asyncio.run(main())
