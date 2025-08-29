@@ -53,18 +53,21 @@ COUNTRY_TIMEZONES = {
 OWNER_ID = 1238436456041676853
 SPECIAL_USER_IDS = [OWNER_ID]
 
-import os
-print(os.getenv("DISCORD_TOKEN"))
+from aiohttp import web
+import asyncio
 
-PORT = int(os.environ.get("PORT", 8080))
+async def keep_alive():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
 
-app = Flask(__name__)
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
 
-@app.route("/")
-def home():
-    return "Bot is running!"
-
-def run_web():
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    print("✅ HTTP server running on port 8080")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
 # =========================
@@ -251,5 +254,10 @@ async def main():
     await keep_alive()
     TOKEN = os.getenv("DISCORD_TOKEN")
     
+
+async def main():
+    await setup_cogs(bot)   # 載入你的 cogs
+    await keep_alive()      # aiohttp 保活
+    await bot.start(TOKEN)  # 啟動 Bot
 
 asyncio.run(main())
