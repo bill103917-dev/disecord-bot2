@@ -53,6 +53,25 @@ COUNTRY_TIMEZONES = {
 OWNER_ID = 1238436456041676853
 SPECIAL_USER_IDS = [OWNER_ID]
 
+from flask import Flask
+import os
+import threading
+
+PORT = int(os.environ.get("PORT", 8080))
+
+# 1️⃣ 定義 Flask 應用
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is running!"
+
+# 2️⃣ 用 thread 讓 Flask 跑在背景
+def run_web():
+    app.run(host="0.0.0.0", port=PORT)
+
+threading.Thread(target=run_web, daemon=True).start()
+
 PORT = int(os.environ.get("PORT", 8080))
 app.run(host='0.0.0.0', port=PORT)
 
@@ -237,7 +256,7 @@ def run_web():
 # ===== Entrypoint =====
 if __name__ == '__main__':
     # 開一條 Flask 執行緒，讓 Render 偵測埠口
-    threading.Thread(target=run_web, daemon=True).start()
+    
 
 
 # =========================
