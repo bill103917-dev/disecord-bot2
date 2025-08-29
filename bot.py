@@ -3,7 +3,11 @@ from discord import app_commands
 import discord
 import asyncio
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+import pytz
+from datetime import datetime
+
+tz = pytz.timezone("Asia/Taipei")
+now = datetime.now(tz)
 
 # 你原本的輔助函數 (例如 parse_time, format_duration, COUNTRY_TIMEZONES) 請保留
 # 這裡我先假設它們已經定義在前面了
@@ -446,6 +450,8 @@ async def main():
     await keep_alive()
     await bot.start(TOKEN)
 
-loop = asyncio.get_event_loop()
-loop.create_task(main())
-loop.run_forever()
+if __name__ == "__main__":
+    import os
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    import asyncio
+    asyncio.run(main())
