@@ -422,9 +422,30 @@ async def main():
         await bot.start(TOKEN)  # 啟動 Bot
         # 啟動保活
         await keep_alive()
-if __name__ == "__main__":
-    asyncio.run(main())
+        
 
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+import os
+import asyncio
+from discord.ext import commands
+import discord
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+intents = discord.Intents.default()
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"✅ 已登入：{bot.user} (ID: {bot.user.id})")
+
+async def main():
+    await setup_cogs(bot)
+    await keep_alive()
+    await bot.start(TOKEN)
+
+loop = asyncio.get_event_loop()
+loop.create_task(main())
+loop.run_forever()
