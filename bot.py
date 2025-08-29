@@ -254,9 +254,7 @@ def run_web():
     app.run(host='0.0.0.0', port=PORT)
 
 # ===== Entrypoint =====
-if __name__ == '__main__':
-    # 開一條 Flask 執行緒，讓 Render 偵測埠口
-    
+
 
 
 # =========================
