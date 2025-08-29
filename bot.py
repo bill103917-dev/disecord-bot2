@@ -55,6 +55,8 @@ SPECIAL_USER_IDS = [OWNER_ID]
 import os
 print(os.getenv("DISCORD_TOKEN"))
 
+PORT = int(os.environ.get("PORT", 8080))
+
 
 
 # =========================
