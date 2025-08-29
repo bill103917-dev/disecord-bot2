@@ -53,6 +53,9 @@ COUNTRY_TIMEZONES = {
 OWNER_ID = 1238436456041676853
 SPECIAL_USER_IDS = [OWNER_ID]
 
+PORT = int(os.environ.get("PORT", 8080))
+app.run(host='0.0.0.0', port=PORT)
+
 from aiohttp import web
 import asyncio
 
