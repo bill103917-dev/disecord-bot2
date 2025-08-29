@@ -52,6 +52,9 @@ COUNTRY_TIMEZONES = {
 OWNER_ID = 1238436456041676853
 SPECIAL_USER_IDS = [OWNER_ID]
 
+import os
+print(os.getenv("DISCORD_TOKEN"))
+
 # =========================
 # 🚀 保活伺服器
 # =========================
@@ -173,7 +176,7 @@ class FunCog(commands.Cog):
 from discord import app_commands
 import discord
 
-OWNER_ID = 1238436456041676853  # 改成你的 Discord ID
+  # 改成你的 Discord ID
 
 class AdminCog(commands.Cog):
     """管理員專用指令"""
