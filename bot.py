@@ -71,8 +71,14 @@ def run_web():
 
 threading.Thread(target=run_web, daemon=True).start()
 
+
+
+import os
+
 PORT = int(os.environ.get("PORT", 8080))
-app.run(host='0.0.0.0', port=PORT)
+
+def run_web():
+    app.run(host="0.0.0.0", port=PORT)
 
 from aiohttp import web
 import asyncio
@@ -277,6 +283,7 @@ async def main():
 async def main():
     await setup_cogs(bot)   # 載入你的 cogs
     await keep_alive()      # aiohttp 保活
-    await bot.start(TOKEN)  # 啟動 Bot
+      # 啟動 Bot
 
 asyncio.run(main())
+asyncio.run(bot.start(TOKEN))
