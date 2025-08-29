@@ -58,7 +58,21 @@ print(os.getenv("DISCORD_TOKEN"))
 
 PORT = int(os.environ.get("PORT", 8080))
 
+from aiohttp import web
+import asyncio
 
+async def keep_alive():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    print("✅ HTTP server running on port 8080")
 
 # =========================
 # 📌 UtilityCog
