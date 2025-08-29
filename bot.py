@@ -165,6 +165,45 @@ class FunCog(commands.Cog):
             return
         winner = random.choice(items)
         await interaction.response.send_message(f"🎉 抽籤結果：**{winner}**")
+        
+        
+        
+#管理——————
+    from discord.ext import commands
+from discord import app_commands
+import discord
+
+OWNER_ID = 1238436456041676853  # 改成你的 Discord ID
+
+class AdminCog(commands.Cog):
+    """管理員專用指令"""
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    @app_commands.command(name="kick", description="踢出成員")
+    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+        if not interaction.user.guild_permissions.kick_members:
+            await interaction.response.send_message("❌ 你沒有權限踢人", ephemeral=True)
+            return
+        await member.kick(reason=reason)
+        await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
+
+    @app_commands.command(name="ban", description="封禁成員")
+    async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
+        if not interaction.user.guild_permissions.ban_members:
+            await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
+            return
+        await member.ban(reason=reason)
+        await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
+
+    @app_commands.command(name="restart", description="重啟機器人（僅指定使用者可用）")
+    async def restart(self, interaction: discord.Interaction):
+        if interaction.user.id != OWNER_ID:
+            await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
+            return
+        await interaction.response.send_message("🔄 機器人正在重啟...", ephemeral=True)
+        await self.bot.close()
 
 # =========================
 # 🔧 Cog 載入函數
