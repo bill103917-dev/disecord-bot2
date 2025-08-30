@@ -2,151 +2,92 @@ import os
 import discord
 from discord.ext import commands
 from discord import app_commands
-import asyncio
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 import random
-from flask import Flask
-import threading
+import asyncio
+import re
+from typing import List, Optional
+from aiohttp import web
 
 # =========================
-# ⚙️ 全域設定
+# ⚡ 基本設定
 # =========================
+TOKEN = os.getenv("DISCORD_TOKEN")
 OWNER_ID = 1238436456041676853
 SPECIAL_USER_IDS = [OWNER_ID]
 
-COUNTRY_TIMEZONES = {
-    "台灣": "Asia/Taipei",
-    "日本": "Asia/Tokyo",
-    "美國東岸": "America/New_York",
-    "美國西岸": "America/Los_Angeles",
-    "英國": "Europe/London",
-    "德國": "Europe/Berlin",
-    "澳洲": "Australia/Sydney"
-}
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+# -------------------------
+# 防多實例
+# -------------------------
+MAIN_BOT_ID = int(os.environ.get("MAIN_BOT_ID", 0))
+def is_main_instance():
+    return bot.user.id == MAIN_BOT_ID or MAIN_BOT_ID == 0
 
 # =========================
-# 🕒 工具函數
-# =========================
-def parse_time(timestr: str) -> int:
-    units = {"s": 1, "m": 60, "h": 3600}
-    num, total = "", 0
-    for char in timestr:
-        if char.isdigit():
-            num += char
-        elif char in units:
-            if not num:
-                raise ValueError("時間格式錯誤，缺少數字")
-            total += int(num) * units[char]
-            num = ""
-        else:
-            raise ValueError(f"無效的時間單位: {char}")
-    if num:
-        total += int(num)
-    if total <= 0:
-        raise ValueError("時間必須大於 0 秒")
-    return total
-
-def format_duration(seconds: int) -> str:
-    h, m, s = seconds // 3600, (seconds % 3600) // 60, seconds % 60
-    parts = []
-    if h: parts.append(f"{h} 小時")
-    if m: parts.append(f"{m} 分鐘")
-    if s: parts.append(f"{s} 秒")
-    return " ".join(parts) if parts else "0 秒"
-
-# =========================
-# 🌐 Flask 保活
-# =========================
-PORT = int(os.environ.get("PORT", 8080))
-flask_app = Flask(__name__)
-
-@flask_app.route("/")
-def home():
-    return "✅ Bot is running!"
-
-def run_web():
-    flask_app.run(host="0.0.0.0", port=PORT)
-
-def keep_alive():
-    threading.Thread(target=run_web, daemon=True).start()
-
-# =========================
-# 📌 UtilityCog
+# ⚡ Cog: 工具指令
 # =========================
 class UtilityCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="ping", description="測試 Bot 是否在線")
-    async def ping(self, interaction: discord.Interaction):
-        await interaction.response.send_message("🏓 Pong!", ephemeral=True)
-
-    @app_commands.command(name="hello", description="打招呼")
-    async def hello(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"👋 哈囉 {interaction.user.mention}!", ephemeral=True)
-
-    @app_commands.command(name="timer", description="設定計時器 (例: 10s, 5m, 2h)")
-    async def timer(self, interaction: discord.Interaction, timestr: str):
-        try:
-            total_seconds = parse_time(timestr)
-        except ValueError as e:
-            await interaction.response.send_message(f"❌ {e}", ephemeral=True)
-            return
-        await interaction.response.send_message(f"⏳ 計時器開始：{timestr}", ephemeral=True)
-        async def task():
-            await asyncio.sleep(total_seconds)
-            await interaction.channel.send(f"⏰ {interaction.user.mention}，計時到囉！")
-        asyncio.create_task(task())
-
-    @app_commands.command(name="alarm", description="設定鬧鐘")
-    async def alarm(self, interaction: discord.Interaction, country: str, hour: int, minute: int):
-        if country not in COUNTRY_TIMEZONES:
-            await interaction.response.send_message(f"❌ 不支援的國家: {', '.join(COUNTRY_TIMEZONES.keys())}", ephemeral=True)
-            return
-        tz = ZoneInfo(COUNTRY_TIMEZONES[country])
-        now = datetime.now(tz)
-        target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        if target_time < now:
-            target_time += timedelta(days=1)
-        delta_seconds = int((target_time - now).total_seconds())
-        delta_formatted = format_duration(delta_seconds)
-        await interaction.response.send_message(
-            f"⏰ 鬧鐘已設定在 {country} 時間 {target_time.strftime('%H:%M')}，還有 {delta_formatted} 後提醒！",
-            ephemeral=True
-        )
-        async def task():
-            await asyncio.sleep(delta_seconds)
-            await interaction.channel.send(f"🔔 {interaction.user.mention}，現在是 {country} {target_time.strftime('%H:%M')}，鬧鐘到囉！")
-        asyncio.create_task(task())
-
-    @app_commands.command(name="say", description="讓機器人發送訊息")
-    async def say(self, interaction: discord.Interaction, message: str, channel_name: str = None, user_id: str = None):
+    @app_commands.command(name="say", description="讓機器人發送訊息（可發頻道或私訊單一用戶）")
+    @app_commands.describe(
+        message="要發送的訊息",
+        channel="選擇要發送的頻道（可選，不選則預設為當前頻道）",
+        user="選擇要私訊的使用者（可選）"
+    )
+    async def say(
+        self,
+        interaction: discord.Interaction,
+        message: str,
+        channel: discord.TextChannel = None,
+        user: discord.User = None
+    ):
+        # 權限檢查
         if not interaction.user.guild_permissions.administrator and interaction.user.id not in SPECIAL_USER_IDS:
             await interaction.response.send_message("❌ 你沒有權限使用此指令", ephemeral=True)
             return
-        if user_id:
+
+        # 如果有指定用戶 -> 發私訊
+        if user:
             try:
-                user = await self.bot.fetch_user(int(user_id))
                 await user.send(message)
-                await interaction.response.send_message(f"✅ 已發送私訊給 {user.name}", ephemeral=True)
+                await interaction.response.send_message(f"✅ 已私訊給 {user.mention}", ephemeral=True)
             except Exception as e:
                 await interaction.response.send_message(f"❌ 發送失敗: {e}", ephemeral=True)
             return
-        channel = discord.utils.get(interaction.guild.channels, name=channel_name) if channel_name else interaction.channel
-        if not channel:
-            await interaction.response.send_message(f"❌ 找不到頻道 `{channel_name}`", ephemeral=True)
-            return
-        await channel.send(message)
-        await interaction.response.send_message(f"✅ 已在 {channel.mention} 發送訊息", ephemeral=True)
+
+        # 如果沒指定用戶 -> 發頻道
+        target_channel = channel or interaction.channel
+        try:
+            await target_channel.send(message)
+            await interaction.response.send_message(f"✅ 已在 {target_channel.mention} 發送訊息", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ 發送失敗: {e}", ephemeral=True)
+        
+        
+    @app_commands.command(name="calc", description="簡單計算器")
+    @app_commands.describe(expr="例如：1+2*3")
+    async def calc(self, interaction: discord.Interaction, expr: str):
+        try:
+            allowed = "0123456789+-*/(). "
+            if not all(c in allowed for c in expr):
+                raise ValueError("包含非法字符")
+            result = eval(expr)
+            await interaction.response.send_message(f"結果：{result}")
+        except Exception as e:
+            await interaction.response.send_message(f"計算錯誤：{e}")
 
 # =========================
-# 🎮 FunCog
+# ⚡ Cog: 遊戲指令
 # =========================
 class FunCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.rps_choices = {"剪刀": "✂️", "石頭": "🪨", "布": "📄"}
+        self.rps_choices = {"剪刀":"✂️", "石頭":"🪨", "布":"📄"}
 
     @app_commands.command(name="rps", description="剪刀石頭布")
     async def rps(self, interaction: discord.Interaction, choice: str):
@@ -156,74 +97,207 @@ class FunCog(commands.Cog):
         bot_choice = random.choice(list(self.rps_choices.keys()))
         if choice == bot_choice:
             result = "平手 🤝"
-        elif (choice == "剪刀" and bot_choice == "布") or (choice == "石頭" and bot_choice == "剪刀") or (choice == "布" and bot_choice == "石頭"):
+        elif (choice=="剪刀" and bot_choice=="布") or (choice=="石頭" and bot_choice=="剪刀") or (choice=="布" and bot_choice=="石頭"):
             result = "你贏了 🎉"
         else:
             result = "你輸了 😢"
         await interaction.response.send_message(f"你出 {self.rps_choices[choice]} ({choice})\n我出 {self.rps_choices[bot_choice]} ({bot_choice})\n結果：{result}")
 
-    @app_commands.command(name="draw", description="隨機抽籤 (用空格分開選項)")
+    @app_commands.command(name="draw", description="隨機抽選一個選項")
+    @app_commands.describe(options="輸入多個選項，用逗號或空格分隔")
     async def draw(self, interaction: discord.Interaction, options: str):
-        items = [o.strip() for o in options.split() if o.strip()]
+        if "," in options:
+            items = [o.strip() for o in options.split(",") if o.strip()]
+        else:
+            items = [o.strip() for o in options.split() if o.strip()]
+
         if len(items) < 2:
             await interaction.response.send_message("❌ 請至少輸入兩個選項", ephemeral=True)
             return
+
         winner = random.choice(items)
-        await interaction.response.send_message(f"🎉 抽籤結果：**{winner}**")
+        await interaction.response.send_message(f"🎉 抽選結果：**{winner}**")
 
 # =========================
-# 🛠 AdminCog
+# ⚡ Cog: Ping 指令
 # =========================
-class AdminCog(commands.Cog):
-    """管理員專用指令"""
+class PingCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="kick", description="踢出成員")
-    async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
-        if not interaction.user.guild_permissions.kick_members:
-            await interaction.response.send_message("❌ 你沒有權限踢人", ephemeral=True)
-            return
-        await member.kick(reason=reason)
-        await interaction.response.send_message(f"✅ 已踢出 {member.display_name}")
+    @app_commands.command(name="ping", description="檢查機器人延遲")
+    async def ping(self, interaction: discord.Interaction):
+        latency_ms = round(self.bot.latency * 1000)  # 轉成毫秒
+        await interaction.response.send_message(f"🏓 Pong! 延遲：{latency_ms}ms")
+        
+# =========================
+# ⚡ Cog: 抽獎
+# =========================
+class DrawCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.active_draws = {}  # key: guild_id, value: dict(name, max_winners, participants, task, end_time)
 
-    @app_commands.command(name="ban", description="封禁成員")
-    async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "未提供原因"):
-        if not interaction.user.guild_permissions.ban_members:
-            await interaction.response.send_message("❌ 你沒有權限封禁成員", ephemeral=True)
-            return
-        await member.ban(reason=reason)
-        await interaction.response.send_message(f"✅ 已封禁 {member.display_name}")
+    # 解析時間字串，支援 10s / 5m / 1h
+    def parse_duration(self, timestr: str) -> int:
+        pattern = r"(\d+)([smh])"
+        match = re.fullmatch(pattern, timestr.strip().lower())
+        if not match:
+            raise ValueError("時間格式錯誤，範例: 10s, 5m, 1h")
+        number, unit = match.groups()
+        number = int(number)
+        return number * {"s":1,"m":60,"h":3600}[unit]
 
-    @app_commands.command(name="restart", description="重啟機器人（僅 OWNER 可用）")
-    async def restart(self, interaction: discord.Interaction):
-        if interaction.user.id != OWNER_ID:
-            await interaction.response.send_message("❌ 你沒有權限重啟機器人", ephemeral=True)
+    @app_commands.command(name="start_draw", description="開始抽獎")
+    @app_commands.describe(
+        name="抽獎名稱",
+        max_winners="最多中獎人數（預設 1）",
+        duration="抽獎持續時間，例如：10s / 5m / 1h（預設 60s）"
+    )
+    async def start_draw(self, interaction: discord.Interaction, name: str, max_winners: int = 1, duration: str = "60s"):
+        guild_id = interaction.guild.id
+        if guild_id in self.active_draws:
+            await interaction.response.send_message("❌ 本伺服器已有正在進行的抽獎", ephemeral=True)
             return
-        await interaction.response.send_message("🔄 機器人正在重啟...", ephemeral=True)
-        await self.bot.close()
+
+        try:
+            seconds = self.parse_duration(duration)
+        except ValueError as e:
+            await interaction.response.send_message(f"❌ {e}", ephemeral=True)
+            return
+
+        end_time = asyncio.get_event_loop().time() + seconds
+        draw_info = {
+            "name": name,
+            "max_winners": max_winners,
+            "participants": set(),
+            "task": asyncio.create_task(self._auto_end_draw(interaction, guild_id, seconds)),
+            "end_time": end_time
+        }
+        self.active_draws[guild_id] = draw_info
+        await interaction.response.send_message(
+            f"🎉 抽獎 `{name}` 已開始！使用 /join_draw 參加。名額: {max_winners}。\n⏱ 持續 {duration} 後自動結束。"
+        )
+
+    @app_commands.command(name="join_draw", description="參加抽獎")
+    async def join_draw(self, interaction: discord.Interaction):
+        guild_id = interaction.guild.id
+        if guild_id not in self.active_draws:
+            await interaction.response.send_message("❌ 沒有正在進行的抽獎", ephemeral=True)
+            return
+        draw = self.active_draws[guild_id]
+        draw["participants"].add(interaction.user.id)
+        await interaction.response.send_message(f"✅ {interaction.user.mention} 已加入 `{draw['name']}` 抽獎！", ephemeral=True)
+
+    @app_commands.command(name="draw_status", description="查看抽獎狀態")
+    async def draw_status(self, interaction: discord.Interaction):
+        guild_id = interaction.guild.id
+        if guild_id not in self.active_draws:
+            await interaction.response.send_message("❌ 沒有正在進行的抽獎", ephemeral=True)
+            return
+        draw = self.active_draws[guild_id]
+        remaining = max(0, int(draw["end_time"] - asyncio.get_event_loop().time()))
+        await interaction.response.send_message(
+            f"🎯 抽獎 `{draw['name']}`\n參加人數：{len(draw['participants'])}\n剩餘時間：{remaining} 秒",
+            ephemeral=True
+        )
+
+    @app_commands.command(name="cancel_draw", description="取消抽獎（管理員限定）")
+    async def cancel_draw(self, interaction: discord.Interaction):
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 你沒有權限取消抽獎", ephemeral=True)
+            return
+        guild_id = interaction.guild.id
+        if guild_id not in self.active_draws:
+            await interaction.response.send_message("❌ 沒有正在進行的抽獎", ephemeral=True)
+            return
+        draw = self.active_draws.pop(guild_id)
+        draw["task"].cancel()
+        await interaction.response.send_message(f"⚠️ 抽獎 `{draw['name']}` 已被取消", ephemeral=False)
+
+    async def _auto_end_draw(self, interaction, guild_id, duration_seconds):
+        try:
+            await asyncio.sleep(duration_seconds)
+            if guild_id not in self.active_draws:
+                return
+            draw = self.active_draws.pop(guild_id)
+            participants = list(draw["participants"])
+            if not participants:
+                await interaction.channel.send(f"❌ 抽獎 `{draw['name']}` 沒有人參加。")
+                return
+            winners = random.sample(participants, min(draw["max_winners"], len(participants)))
+            winners_mentions = [f"<@{uid}>" for uid in winners]
+            await interaction.channel.send(f"🏆 抽獎 `{draw['name']}` 結束！得獎者：{', '.join(winners_mentions)}")
+        except asyncio.CancelledError:
+            # 抽獎被取消
+            return
 
 # =========================
-# 🚀 啟動 Bot
+# ⚡ Cog: 公告
 # =========================
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+class AnnounceCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
 
+    @app_commands.command(name="announce", description="發布公告（管理員限定）")
+    @app_commands.describe(
+        title="公告標題",
+        content="公告內容",
+        channel="公告頻道（可不選）",
+        ping_everyone="是否要 @everyone"
+    )
+    async def announce(self, interaction: discord.Interaction, title: str, content: str, channel: discord.TextChannel = None, ping_everyone: bool = False):
+        if not is_main_instance():
+            await interaction.response.send_message("❌ 目前這個 Bot instance 不負責發送公告", ephemeral=True)
+            return
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 只有管理員能發布公告", ephemeral=True)
+            return
+        target_channel = channel or interaction.channel
+        embed = discord.Embed(title=f"📢 {title}", description=content, color=discord.Color.orange())
+        embed.set_footer(text=f"發布者：{interaction.user.display_name}")
+        await interaction.response.send_message(f"✅ 公告已發佈到 {target_channel.mention}！", ephemeral=True)
+        mention = "@everyone" if ping_everyone else ""
+        await target_channel.send(mention, embed=embed)
+
+# =========================
+# ⚡ HTTP 保活
+# =========================
+async def keep_alive():
+    async def handle(request):
+        return web.Response(text="Bot is running!")
+    app = web.Application()
+    app.add_routes([web.get("/", handle)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    await site.start()
+    print("✅ HTTP server running on port 8080")
+
+# =========================
+# ⚡ Bot 啟動
+# =========================
+# 在 Bot 啟動區域
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print(f"✅ 已登入：{bot.user} (ID: {bot.user.id})")
-
-async def setup_cogs():
-    await bot.add_cog(UtilityCog(bot))
-    await bot.add_cog(FunCog(bot))
-    await bot.add_cog(AdminCog(bot))
+    print(f"✅ Bot 已啟動！登入身分：{bot.user}")
+    await bot.tree.sync()  # 同步 Slash commands
 
 async def main():
-    keep_alive()
-    await setup_cogs()
-    TOKEN = os.getenv("DISCORD_TOKEN")
+    # 啟動 HTTP server
+    await keep_alive()
+
+    # 註冊 Cogs
+    await bot.add_cog(UtilityCog(bot))
+    await bot.add_cog(FunCog(bot))
+    await bot.add_cog(DrawCog(bot))
+    await bot.add_cog(AnnounceCog(bot))
+    await bot.add_cog(PingCog(bot))
+    # 啟動 Bot
     await bot.start(TOKEN)
 
-asyncio.run(main())
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("⚡ Bot 已停止")
