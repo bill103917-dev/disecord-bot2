@@ -104,8 +104,8 @@ class UtilityCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
 
         try:
-            deleted = await interaction.channel.purge(limit=amount+1)  # +1 把指令那則也刪掉
-            await interaction.followup.send(f"✅ 已刪除 {len(deleted)-1} 則訊息", ephemeral=True)
+            deleted = await interaction.channel.purge(limit=amount)
+            await interaction.followup.send(f"✅ 已刪除 {len(deleted)} 則訊息", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(f"❌ 刪除失敗: {e}", ephemeral=True)
             
@@ -125,8 +125,8 @@ class ReactionRoleCog(commands.Cog):
         取消偵測="是否取消此功能"
     )
     @app_commands.choices(取消偵測=[
-        app_commands.Choice(name="否", value="yes"),
-        app_commands.Choice(name="是", value="no")
+        app_commands.Choice(name="否", value="no"),
+        app_commands.Choice(name="是", value="yes")
     ])
     async def reaction_role(
         self,
@@ -146,8 +146,8 @@ class ReactionRoleCog(commands.Cog):
             await interaction.response.send_message(f"❌ 解析訊息連結失敗: {e}", ephemeral=True)
             return
 
-        # 如果選擇「否」 → 取消功能
-        if 取消偵測.value == "no":
+        # 如果選擇「是」 → 取消功能
+        if 取消偵測.value == "yes":
             if message_id in self.message_roles and 表情符號 in self.message_roles[message_id]:
                 del self.message_roles[message_id][表情符號]
                 if not self.message_roles[message_id]:  # 如果該訊息沒有任何配對了就整個刪掉
@@ -157,7 +157,7 @@ class ReactionRoleCog(commands.Cog):
                 await interaction.response.send_message("⚠️ 這個訊息沒有設定過這個表情符號", ephemeral=True)
             return
 
-        # 如果選擇「是」 → 正常設定
+        # 如果選擇「否」 → 正常設定
         if message_id not in self.message_roles:
             self.message_roles[message_id] = {}
         self.message_roles[message_id][表情符號] = 身分組.id
